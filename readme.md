@@ -12,9 +12,9 @@
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)]()
 [![LLM](https://img.shields.io/badge/LLM%20Required-None-brightgreen?style=flat-square)]()
 
-**Local-first Facebook SOCMINT platform — no LLM, no Docker, no cloud dependency. For AI powered version check this repo [click here](https://github.com/jeet-ganguly/birdy-edwards)**
+**Local-first multi-platform SOCMINT — Facebook, Instagram, and Reddit. No LLM, no Docker, no cloud dependency. For the AI-powered version see [birdy-edwards](https://github.com/jeet-ganguly/birdy-edwards).**
 
-[Installation](#installation) · [Features](#features) · [Troubleshooting](#troubleshooting) · [Disclaimer](#️-disclaimer) · [Contributing](#contributing)
+[Installation](#installation) · [Platforms](#platforms--mini-apps) · [Features](#features) · [Troubleshooting](#troubleshooting) · [Disclaimer](#️-disclaimer) · [Contributing](#contributing)
 
 </div>
 
@@ -22,11 +22,11 @@
 
 ## What is Birdy-Edwards Lite?
 
-Birdy-Edwards Lite is a stripped-down, dependency-light edition of the full Birdy-Edwards FACEBOOK SOCMINT platform. It performs the same core profile intelligence workflow — data gathering, interaction mapping, face clustering, and network visualization — without requiring any AI model, Docker container, or cloud service.
+Birdy-Edwards Lite is a stripped-down, dependency-light edition of the full Birdy-Edwards SOCMINT platform. It runs three separate mini-apps — **Facebook**, **Instagram**, and **Reddit** — each with its own cookies, database, and investigation history.
 
-Everything runs on your local machine. No GPU required. No model downloads. No external API calls.
+Each platform performs the same core workflow — data gathering, interaction mapping, network visualization, and (where applicable) face clustering — without requiring any AI model, Docker container, or cloud service.
 
-It is designed for investigators who want fast, reproducible results on modest hardware, or who want to run the tool without the overhead of the full AI-powered version.
+Everything runs on your local machine. No GPU required. No model downloads. No official platform APIs.
 
 <img src="app/icons/demo.png" alt="BIRDY-EDWARDS Web UI" width="100%"/>
 
@@ -39,22 +39,52 @@ It is designed for investigators who want fast, reproducible results on modest h
 <img src="app/icons/workflow.png" alt="BIRDY-EDWARDS LITE Pipeline" width="100%"/>
 </div>
 
+Shared shell tabs switch between mini-apps:
+
+| Tab | URL | Cookie file | Database |
+|---|---|---|---|
+| Facebook | `/facebook` | `fb_cookies.pkl` | `socmint_fb.db` |
+| Instagram | `/instagram` | `ig_cookies.pkl` | `socmint_ig.db` |
+| Reddit | `/reddit` | `reddit_cookies.pkl` | `socmint_reddit.db` |
+
+`/` redirects to `/facebook` for backward compatibility.
+
+---
+
+## Platforms · Mini-Apps
+
+### Targets (profile-only)
+
+| Platform | Accepted targets | Rejected |
+|---|---|---|
+| Facebook | Profile URL | — |
+| Instagram | `https://www.instagram.com/<user>/`, `@user`, or bare `user` | Stories, hashtags, locations |
+| Reddit | `https://www.reddit.com/user/<name>/` or `u/<name>` | Subreddits, search queries |
+
+### Per-platform gather
+
+- **Facebook** — about, photos, reels, text posts + comments; face clustering
+- **Instagram** — about, posts, reels + comments; face clustering
+- **Reddit** — about, submissions + comments on those submissions; **no** face step
+
+Auth is operator cookies + SeleniumBase only (no Graph API / no `praw`).
+
 ---
 
 ## Features
 
-- 🔍 **Profile data gathering** — Automated collection of posts, photos, reels, about data, comments, interactor names and profile links
-- 📊 **Frequency scoring** — Weighted interaction frequency ranking across all post types (photo, reel, text)
+- 🔍 **Profile data gathering** — Automated collection of posts/submissions, photos/reels (FB/IG), about data, comments, interactor names and profile links
+- 📊 **Frequency scoring** — Weighted interaction frequency ranking across gathered content
 - 🕸️ **Network graph** — Interactive force-directed graph showing target ↔ interactor relationships, frequency-weighted edges, fullscreen mode
 - 🔗 **Co-interactor matrix** — Heatmap showing which interactors appeared together across posts, with threshold filtering (1+, 2+, 3+, 5+)
 - 💠 **Co-interactor force graph** — Force-directed cluster view of interactor co-occurrence relationships, fullscreen mode
-- 📈 **Interaction timeline** — Date-wise stacked bar chart of photo and text post interactions
-- 🍩 **Distribution donut** — Breakdown of interactions by media type (photo / reel / text)
-- 👤 **Face intelligence** — CNN / HOG face detection, 128D encoding, and identity clustering across all gathered images
-- 🌳 **Face cluster tree** — Frequency-cascade hierarchy of detected persons, from most to least appearances
-- 🎯 **Top 7 priority targets** — Highest-frequency interactors with about-data cards
-- 📋 **About data cards** — Target and Top 7 interactor profile fields grouped by section (personal, work, education, etc.)
-- 🗑️ **Investigation management** — Delete any investigation and all its gathered data (DB rows + face image files) from the home page
+- 📈 **Interaction timeline** — Date-wise stacked bar chart of interactions
+- 🍩 **Distribution donut** — Breakdown of interactions by media / content type
+- 👤 **Face intelligence** — CNN / HOG face detection and clustering (**Facebook + Instagram only**; Reddit omits this step)
+- 🌳 **Face cluster tree** — Frequency-cascade hierarchy of detected persons (FB/IG)
+- 🎯 **Top 7 priority targets** — Highest-frequency interactors with about-data cards where available
+- 📋 **About data cards** — Target and Top 7 interactor profile fields
+- 🗑️ **Investigation management** — Delete any investigation and its gathered data from the home page
 - 🌙 **Dark / light theme** — Full theme toggle across all dashboard components
 - 🤖 **Zero LLM dependency** — No Ollama, no model download, no GPU needed
 
@@ -65,14 +95,15 @@ It is designed for investigators who want fast, reproducible results on modest h
 > BIRDY-EDWARDS LITE is developed strictly for **authorized intelligence, law enforcement, and academic research purposes only.**
 >
 > **Scope of data access:**
-> - This tool operates exclusively using a valid Facebook session authenticated by the operator
-> - It only accesses **publicly visible** profile data, posts, photos, reels, and comments
+> - This tool operates exclusively using a valid platform session authenticated by the operator (Facebook, Instagram, or Reddit cookies)
+> - It only accesses **publicly visible** profile data, posts/submissions, media, and comments
 > - It does **not** access private messages, locked profiles, restricted content, or any data not visible to a logged-in user
 > - It does **not** use bots, fake accounts, or automated account creation — the operator supplies their own authenticated session
+> - It does **not** call official platform APIs
 >
 > **Legal responsibility:**
 > - This tool must only be used on profiles and content where you have **explicit legal authorization** to collect and analyze data
-> - Use without authorization may violate Facebook's Terms of Service, applicable privacy laws (GDPR, IT Act, DPDP Act), and local regulations
+> - Use without authorization may violate platform Terms of Service, applicable privacy laws (GDPR, IT Act, DPDP Act), and local regulations
 > - The developer assumes **no liability** for misuse, unauthorized data collection, or any harm caused by improper use
 > - All investigations are the **sole responsibility of the operator**
 >
@@ -85,10 +116,11 @@ It is designed for investigators who want fast, reproducible results on modest h
 | Capability | Lite | Full (AI) |
 |---|:---:|:---:|
 | Profile data gathering | ✅ | ✅ |
+| Facebook / Instagram / Reddit mini-apps | ✅ | — |
 | Interaction frequency scoring | ✅ | ✅ |
 | Network + co-interactor graphs | ✅ | ✅ |
 | Timeline + donut charts | ✅ | ✅ |
-| CNN / HOG face clustering | ✅ | ✅ |
+| CNN / HOG face clustering (FB/IG) | ✅ | ✅ |
 | Top 7 metadata gathering | ✅ | ✅ |
 | AI sentiment / emotion analysis | ❌ | ✅ |
 | Actor composite scoring | ❌ | ✅ |
@@ -111,7 +143,7 @@ It is designed for investigators who want fast, reproducible results on modest h
 | Storage | 5 GB free | 10 GB free |
 | Browser | Chrome / Chromium | Latest Chrome |
 
-> Windows users must use wsl
+> Windows users must use WSL.
 
 ---
 
@@ -155,26 +187,34 @@ python3 app.py
 ### Step 4 — Open the web UI
 
 ```
-http://localhost:5000
+http://localhost:5000          → redirects to /facebook
+http://localhost:5000/facebook
+http://localhost:5000/instagram
+http://localhost:5000/reddit
 ```
 
 ---
 
-## Facebook Session Setup
+## Session Setup (cookies)
 
-Birdy-Edwards Lite uses the **Cookie-Editor** browser extension to import your Facebook session. No Selenium login prompt, no automated account interaction.
+Birdy-Edwards Lite uses the **Cookie-Editor** browser extension. Each mini-app has its own cookie file — import cookies while logged into that platform.
 
-> 🔒 **Operational Security:** Use a dedicated investigation account rather than your personal Facebook account. This protects your identity and prevents your primary account from being flagged.
+> 🔒 **Operational Security:** Use a dedicated investigation account rather than your personal account.
 
 1. Install Cookie-Editor:
    - [Chrome](https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmd)
    - [Firefox](https://addons.mozilla.org/en-US/firefox/addon/cookie-editor/)
-2. Log into your **dedicated investigation account** on Facebook
-3. Click the Cookie-Editor icon while on `facebook.com`
+2. Log into your dedicated investigation account on the target platform
+3. Click Cookie-Editor while on `facebook.com`, `instagram.com`, or `reddit.com`
 4. Click **Export → Export as JSON**
-5. Go to `http://localhost:5000`
-6. Paste the copied JSON into the **IMPORT COOKIES** box
-7. Click **SAVE COOKIES**
+5. Open the matching tab in the UI (`/facebook`, `/instagram`, or `/reddit`)
+6. Paste into **IMPORT COOKIES** and click **SAVE COOKIES**
+
+| Platform | Cookie file | Required cookie names (examples) |
+|---|---|---|
+| Facebook | `fb_cookies.pkl` | `c_user`, `xs` |
+| Instagram | `ig_cookies.pkl` | `sessionid` |
+| Reddit | `reddit_cookies.pkl` | `reddit_session` or `token_v2` |
 
 > Cookies expire periodically. Re-import fresh cookies if the pipeline fails at the data gathering stage.
 
@@ -182,34 +222,31 @@ Birdy-Edwards Lite uses the **Cookie-Editor** browser extension to import your F
 
 ## Running an Investigation
 
-1. Go to `http://localhost:5000`
+1. Open the platform tab (`/facebook`, `/instagram`, or `/reddit`)
 2. Verify the cookie status bar shows ✓ green
-3. Enter the target Facebook profile URL
-4. Select scan depth:
-   - **Light** — 5 posts / 5 reels / 5 photos
-   - **Medium** — 10 posts / 10 reels / 10 photos
-   - **Deep** — 20 posts / 20 reels / 20 photos
-5. Click **LAUNCH PIPELINE**
-6. The pipeline overlay shows live progress across all 8 steps
-7. On completion you are automatically redirected to the analysis dashboard
+3. Enter a **profile-only** target URL (see [Targets](#targets-profile-only))
+4. Select scan depth (Light / Medium / Deep)
+5. Click **LAUNCH PIPELINE** / **START INVESTIGATION**
+6. The pipeline overlay shows live progress (Reddit omits the face step)
+7. On completion you are redirected to that platform’s analysis dashboard
 
 ---
 
 ## Analysis Dashboard
 
-The dashboard renders all gathered intelligence in one page without any server-side AI processing.
+The dashboard renders gathered intelligence without server-side AI processing.
 
 | Section | What it shows |
 |---|---|
 | **Interactor Registry** | All interactors ranked by total interaction count |
 | **Apex Interactor** | The single most frequent interactor with full stats |
-| **Interaction Distribution** | Donut chart — photo / reel / text split |
+| **Interaction Distribution** | Donut chart by content type |
 | **Timeline** | Date-wise stacked bar chart of interactions |
 | **Top 7 Priority Targets** | Top 7 interactors with about-data VIEW button |
-| **Network Graph** | Force-directed target ↔ interactor graph, fullscreen available |
-| **Co-Interactor Matrix** | Heatmap of who appeared together, threshold filter |
-| **Co-Interactor Force Graph** | Cluster view of co-occurrence, threshold filter, fullscreen |
-| **Face Cluster Tree** | Frequency-cascade tree of detected persons |
+| **Network Graph** | Force-directed target ↔ interactor graph |
+| **Co-Interactor Matrix** | Heatmap of who appeared together |
+| **Co-Interactor Force Graph** | Cluster view of co-occurrence |
+| **Face Cluster Tree** | Frequency-cascade tree (**Facebook + Instagram only**) |
 
 Clicking any node or interactor row opens a side panel with interaction samples and profile link.
 
@@ -247,16 +284,16 @@ print(path)
 Then check that `face_recognition_models/__init__.py` does not reference `pkg_resources`.
 
 **Pipeline fails at data gathering stage**
-Your cookies have likely expired. Go to `http://localhost:5000`, re-export from Cookie-Editor, and re-import.
+Your cookies have likely expired. Re-export from Cookie-Editor on the correct domain and re-import in the matching mini-app tab.
 
-**No faces detected**
-Facebook CDN URLs expire. Face clustering only works immediately after a fresh pipeline run while image URLs are still valid.
+**No faces detected (Facebook / Instagram)**
+CDN URLs expire. Face clustering only works immediately after a fresh pipeline run while image URLs are still valid. Reddit has no face step.
 
 **Port 5000 already in use**
 Edit `app.py` final line: change `port=5000` to `port=5001` then access at `http://localhost:5001`.
 
 **DB error: no such table**
-Delete the investigation from the home page and start a new one. The schema is created automatically on first use.
+Delete the investigation from the home page and start a new one. The schema is created automatically on first use. Databases are `socmint_fb.db`, `socmint_ig.db`, and `socmint_reddit.db`.
 
 ---
 
@@ -279,8 +316,8 @@ Then open a Pull Request against `main`.
 **Code guidelines:**
 - Python 3.12, Flask conventions
 - Test locally before submitting
-- Do not commit `fb_cookies.pkl`, databases, or any gathered data
-- Keep gatherer changes minimal — Facebook DOM changes frequently
+- Do not commit `fb_cookies.pkl`, `ig_cookies.pkl`, `reddit_cookies.pkl`, databases, or any gathered data
+- Keep gatherer changes minimal — platform DOMs change frequently
 
 **What we welcome:** bug fixes, UI improvements, new chart types, dashboard features, documentation improvements, stability improvements.
 
@@ -301,6 +338,6 @@ Then open a Pull Request against `main`.
 
 <div align="center">
 
-**BIRDY-EDWARDS LITE** · Infiltrate & Expose · No LLM · Local-First
+**BIRDY-EDWARDS LITE** · Infiltrate & Expose · No LLM · Local-First · Facebook · Instagram · Reddit
 
 </div>
