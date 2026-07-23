@@ -3,13 +3,17 @@ from flask import Flask, redirect
 
 from core.db_base import migrate_legacy_fb_db
 from platforms.facebook.blueprint import facebook_bp
-from platforms.facebook.db import init_db
-from platforms.facebook.constants import BASE_DIR, DB_FILE
+from platforms.facebook.db import init_db as init_fb_db
+from platforms.facebook.constants import BASE_DIR, DB_FILE as FB_DB_FILE
+from platforms.instagram.blueprint import instagram_bp
+from platforms.instagram.db import init_db as init_ig_db
+from platforms.instagram.constants import DB_FILE as IG_DB_FILE
 
 
 def create_app():
     migrate_legacy_fb_db(BASE_DIR)
-    init_db(DB_FILE)
+    init_fb_db(FB_DB_FILE)
+    init_ig_db(IG_DB_FILE)
     application = Flask(
         __name__,
         template_folder=os.path.join(BASE_DIR, 'templates'),
@@ -17,6 +21,7 @@ def create_app():
     )
     application.secret_key = os.environ.get('SECRET_KEY') or os.urandom(32)
     application.register_blueprint(facebook_bp)
+    application.register_blueprint(instagram_bp)
 
     @application.route('/')
     def root():
