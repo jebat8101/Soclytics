@@ -1,6 +1,5 @@
 import os
 import json
-import pickle
 import time
 import threading
 import traceback
@@ -11,6 +10,7 @@ from flask import (
     send_file, current_app, Response,
 )
 
+from core.browser import load_cookies_pickle, save_cookies_pickle
 from platforms.facebook.constants import (
     BASE_DIR, COOKIE_FILE, DB_FILE, ICONS_DIR, FACE_DIR,
     DEPTH_LIMITS, PIPELINE_STEPS,
@@ -71,7 +71,6 @@ def import_cookies():
     convert to pickle format and save as fb_cookies.pkl.
     """
     import json as _json
-    import pickle
 
     try:
         data = request.get_json()
@@ -120,7 +119,7 @@ def import_cookies():
 
             converted.append(selenium_cookie)
 
-        pickle.dump(converted, open(COOKIE_FILE, 'wb'))
+        save_cookies_pickle(COOKIE_FILE, converted)
         current_app.config['COOKIES_OK'] = True
 
         return jsonify({
@@ -205,8 +204,7 @@ def _check_cookie_status_fast():
     if not os.path.exists(COOKIE_FILE):
         return {'exists': False, 'count': 0, 'cookies': [], 'error': None}
     try:
-        with open(COOKIE_FILE, 'rb') as f:
-            cookies = pickle.load(f)
+        cookies = load_cookies_pickle(COOKIE_FILE)
         if not isinstance(cookies, list) or len(cookies) == 0:
             return {'exists': True, 'count': 0, 'cookies': [],
                     'error': 'Cookie file empty or corrupt'}
