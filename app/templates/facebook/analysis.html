@@ -123,7 +123,7 @@
             width: 44px;
             height: 44px;
             border-radius: 8px;
-            background-image: url('/logo');
+            background-image: url('/facebook/logo');
             background-size: cover;
             background-position: center;
             border: 1px solid var(--accent-dim);
@@ -242,7 +242,7 @@
             width: 72px;
             height: 72px;
             border-radius: 50%;
-            background-image: url('/threat');
+            background-image: url('/facebook/threat');
             background-size: cover;
             background-position: center;
             border: 1px solid var(--accent-dim);
@@ -798,7 +798,7 @@
             width: 84px;
             height: 84px;
             border-radius: 50%;
-            background-image: url('/user');
+            background-image: url('/facebook/user');
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1797,9 +1797,11 @@
                 <div class="subtitle">Infiltrate &amp; Expose · Intel Console</div>
             </div>
         </div>
+        {% set active_platform = 'facebook' %}
+        {% include '_shell.html' %}
         <div class="topbar-right">
             <div class="status-pill"><span class="status-dot"></span> <span id="statusText">ANALYSIS LOADED</span></div>
-            <a href="/" class="back-btn">← HOME</a>
+            <a href="/facebook/" class="back-btn">← HOME</a>
             <button class="theme-toggle" onclick="toggleTheme()"><span id="themeIcon">☾</span> <span
                     id="themeLabel">DARK</span></button>
         </div>
@@ -2123,17 +2125,17 @@
 
             const [summary, interactors, top7, graph, cocomment, timeline, counts, faces,
                 photoPosts, textPosts, reelPosts] = await Promise.all([
-                    api(`/api/profile-summary/${PROFILE}`),
-                    api(`/api/all-interactors/${PROFILE}`),
-                    api(`/api/top7/${PROFILE}`),
-                    api(`/api/graph-data/${PROFILE}`),
-                    api(`/api/cocomment-graph/${PROFILE}`),
-                    api(`/api/timeline/${PROFILE}`),
-                    api(`/api/post-type-counts/${PROFILE}`),
-                    api(`/api/face-clusters/${PROFILE}`),
-                    api(`/api/photo-posts/${PROFILE}`),
-                    api(`/api/text-posts/${PROFILE}`),
-                    api(`/api/reel-posts/${PROFILE}`),
+                    api(`/facebook/api/profile-summary/${PROFILE}`),
+                    api(`/facebook/api/all-interactors/${PROFILE}`),
+                    api(`/facebook/api/top7/${PROFILE}`),
+                    api(`/facebook/api/graph-data/${PROFILE}`),
+                    api(`/facebook/api/cocomment-graph/${PROFILE}`),
+                    api(`/facebook/api/timeline/${PROFILE}`),
+                    api(`/facebook/api/post-type-counts/${PROFILE}`),
+                    api(`/facebook/api/face-clusters/${PROFILE}`),
+                    api(`/facebook/api/photo-posts/${PROFILE}`),
+                    api(`/facebook/api/text-posts/${PROFILE}`),
+                    api(`/facebook/api/reel-posts/${PROFILE}`),
                 ]);
 
             if (summary.ok && summary.data) {
@@ -2756,7 +2758,7 @@
 
         function faceImageUrl(p) {
             if (!p) return '';
-            return '/face-image/' + p.replace(/^\/+/, '');
+            return '/facebook/face-image/' + p.replace(/^\/+/, '');
         }
 
         async function showFaceCluster(clusterId) {
@@ -2772,7 +2774,7 @@
 
             let imgs = [];
             try {
-                const res = await fetch(`/api/face-cluster/${clusterId}/members`);
+                const res = await fetch(`/facebook/api/face-cluster/${clusterId}/members`);
                 if (res.ok) {
                     const j = await res.json();
                     if (j.ok && Array.isArray(j.data)) {
@@ -3197,7 +3199,7 @@
             if (!posts.length) { c.innerHTML = '<div class="empty">NO TEXT POSTS</div>'; return; }
             c.innerHTML = posts.map(p => {
                 const screenshotUrl = p.screenshot_path
-                    ? `/screenshot/${p.screenshot_path.replace(/^.*post_screenshots\//, 'post_screenshots/')}`
+                    ? `/facebook/screenshot/${p.screenshot_path.replace(/^.*post_screenshots\//, 'post_screenshots/')}`
                     : null;
                 return `
         <div class="post-card" onclick="window.open('${escapeHtml(p.post_url)}','_blank')">

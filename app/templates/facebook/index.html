@@ -110,7 +110,7 @@
       width: 44px;
       height: 44px;
       border-radius: 8px;
-      background-image: url('/logo');
+      background-image: url('/facebook/logo');
       background-size: cover;
       background-position: center;
       border: 1px solid var(--accent-dim);
@@ -1083,6 +1083,8 @@
         <div class="subtitle">Infiltrate &amp; Expose · Intel Console</div>
       </div>
     </div>
+    {% set active_platform = 'facebook' %}
+    {% include '_shell.html' %}
     <div class="topbar-right">
       <div class="status-pill"><span class="status-dot"></span> SYSTEM READY</div>
       <button class="theme-toggle" onclick="toggleTheme()">
@@ -1254,7 +1256,7 @@
 
     async function checkCookieStatus() {
       try {
-        const res = await fetch('/api/check-cookies');
+        const res = await fetch('/facebook/api/check-cookies');
         const data = await res.json();
         applyCookieUI(data);
       } catch (e) {
@@ -1319,7 +1321,7 @@
       btn.textContent = 'SAVING...';
       btn.disabled = true;
       try {
-        const res = await fetch('/api/import-cookies', {
+        const res = await fetch('/facebook/api/import-cookies', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ cookies: raw }),
         });
@@ -1387,7 +1389,7 @@
       btn.disabled = true;
       setCookieBar('idle', '⏳ Verifying — please wait...');
       try {
-        const res = await fetch('/api/verify-session');
+        const res = await fetch('/facebook/api/verify-session');
         const data = await res.json();
         applyCookieUI_verify(data);
       } catch (e) {
@@ -1414,7 +1416,7 @@
       const grid  = document.getElementById('recordsGrid');
       const count = document.getElementById('recordCount');
       try {
-        const res  = await fetch('/api/investigations');
+        const res  = await fetch('/facebook/api/investigations');
         const data = await res.json();
         if (!data.ok) throw new Error(data.error);
         const recs = data.records;
@@ -1463,7 +1465,7 @@
       }
     }
 
-    function openReport(id) { window.location.href = `/analysis?id=${id}`; }
+    function openReport(id) { window.location.href = `/facebook/analysis?id=${id}`; }
 
     // ── PIPELINE ───────────────────────────────────────────────────────────────
     const STEP_LABELS = {
@@ -1496,7 +1498,7 @@
         openImport(); return;
       }
       try {
-        const res = await fetch('/api/start-pipeline', {
+        const res = await fetch('/facebook/api/start-pipeline', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ profile_url: url, depth }),
         });
@@ -1513,7 +1515,7 @@
 
     async function pollPipeline() {
       try {
-        const res  = await fetch('/api/pipeline-status');
+        const res  = await fetch('/facebook/api/pipeline-status');
         const data = await res.json();
         (data.steps || []).forEach(s => {
           const el = document.getElementById('pstep-' + s.id);
@@ -1534,7 +1536,7 @@
             document.getElementById('pipelineTitle').textContent = 'COMPLETE ✓';
             document.getElementById('pipelineSub').textContent   = 'Redirecting...';
             setTimeout(() => {
-              if (data.profile_id) window.location.href = `/analysis?id=${data.profile_id}`;
+              if (data.profile_id) window.location.href = `/facebook/analysis?id=${data.profile_id}`;
               else { document.getElementById('pipelineOverlay').classList.remove('active'); loadRecords(); }
             }, 1200);
           }
@@ -1568,7 +1570,7 @@
       btn.disabled    = true;
       btn.textContent = 'DELETING...';
       try {
-        const res  = await fetch(`/api/investigations/${_deleteId}`, { method: 'DELETE' });
+        const res  = await fetch(`/facebook/api/investigations/${_deleteId}`, { method: 'DELETE' });
         const data = await res.json();
         if (data.ok) {
           closeConfirm();
