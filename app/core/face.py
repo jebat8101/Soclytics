@@ -27,14 +27,17 @@ FACE_DATA_DIR = 'face_data'
 # Anchor relative screenshot paths to app/ (parent of core/), not core/
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-def run_face_clustering(db_file: str, profile_id: int):
+def run_face_clustering(db_file: str, profile_id: int, face_dir=None):
     """
     Main entry point called by app.py pipeline.
     Safe to call even if face_recognition is not installed — logs and returns.
+    Writes face crops under face_dir when provided, else APP_DIR/face_data.
     """
     if not FACE_RECOGNITION_AVAILABLE:
         print("  ⚠ face_recognition not installed — skipping face clustering")
         return
+
+    base_face_dir = face_dir if face_dir else os.path.join(APP_DIR, FACE_DATA_DIR)
 
     print(f"\n{'═'*65}")
     print("FACE INTELLIGENCE LITE · CNN+HOG")
@@ -79,8 +82,8 @@ def run_face_clustering(db_file: str, profile_id: int):
 
     print(f" {len(photo_posts)} photos to process")
 
-    raw_dir  = os.path.join(FACE_DATA_DIR, owner_name, 'raw')
-    pers_dir = os.path.join(FACE_DATA_DIR, owner_name, 'persons')
+    raw_dir  = os.path.join(base_face_dir, owner_name, 'raw')
+    pers_dir = os.path.join(base_face_dir, owner_name, 'persons')
     os.makedirs(raw_dir,  exist_ok=True)
     os.makedirs(pers_dir, exist_ok=True)
 
@@ -137,7 +140,7 @@ def run_face_clustering(db_file: str, profile_id: int):
 
     print(f"\n  Face intelligence complete")
     print(f"     {len(all_face_data)} faces · {len(clusters)} clusters")
-    print(f"     Saved to: {os.path.join(FACE_DATA_DIR, owner_name)}/")
+    print(f"     Saved to: {os.path.join(base_face_dir, owner_name)}/")
 
 #  CORE IMAGE PROCESSING
 

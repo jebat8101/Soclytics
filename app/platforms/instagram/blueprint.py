@@ -15,6 +15,7 @@ from core.browser import (
     cookies_have_domain, filter_cookies_for_domain,
 )
 from core.urls import normalize_instagram_target
+from core.paths import safe_under
 from platforms.instagram.constants import (
     BASE_DIR, COOKIE_FILE, DB_FILE, ICONS_DIR, FACE_DIR,
     DEPTH_LIMITS, PIPELINE_STEPS,
@@ -202,8 +203,8 @@ def verify_session():
         return jsonify({'ok': True, 'valid': result['valid'], 'error': result['error']})
 
     except ImportError:
-        return jsonify({'ok': True, 'valid': True, 'error': None,
-                        'note': 'Selenium unavailable — skipped check'})
+        return jsonify({'ok': False, 'valid': False,
+                        'error': 'SeleniumBase unavailable — cannot verify session'})
 
 
 def _check_cookie_status_fast():
@@ -472,6 +473,7 @@ def _run_pipeline(profile_url, depth):
                 posts_json = os.path.join(BASE_DIR, 'ig_posts.json'),
                 reels_json = os.path.join(BASE_DIR, 'ig_reels.json'),
                 db_file    = DB_FILE,
+                expected_profile_url = profile_url,
             )
             p = get_profile_id(DB_FILE)
             if p:
@@ -502,7 +504,7 @@ def _run_pipeline(profile_url, depth):
         set_step(pipeline_state, 'face', 'active')
         try:
             if FACE_AVAILABLE:
-                run_face_clustering(DB_FILE, profile_id)
+                run_face_clustering(DB_FILE, profile_id, face_dir=FACE_DIR)
             set_step(pipeline_state, 'face', 'done')
         except Exception as e:
             _step_error('face', e)
@@ -688,7 +690,10 @@ def serve_user():
 @instagram_bp.route('/face-image/<path:filepath>')
 def face_image(filepath):
     """Serve face crop images from face_data_ig/"""
-    full = os.path.join(BASE_DIR, filepath)
+    try:
+        full = safe_under(BASE_DIR, filepath)
+    except ValueError:
+        return '', 404
     if os.path.exists(full):
         return send_file(full)
     return '', 404
@@ -766,7 +771,10 @@ def api_reel_posts(profile_id):
 
 @instagram_bp.route('/screenshot/<path:filepath>')
 def serve_screenshot(filepath):
-    full = os.path.join(BASE_DIR, filepath)
+    try:
+        full = safe_under(BASE_DIR, filepath)
+    except ValueError:
+        return '', 404
     if os.path.exists(full):
         return send_file(full)
     return '', 404

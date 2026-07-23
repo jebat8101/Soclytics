@@ -215,7 +215,7 @@ def get_or_create_commentor(cur, profile_url, name):
     return cur.lastrowid
 
 
-def import_about(about_json=ABOUT_JSON, db_file=DB_FILE):
+def import_about(about_json=ABOUT_JSON, db_file=DB_FILE, expected_profile_url=None):
     if not os.path.exists(about_json):
         print(f"  {about_json} not found — skipping")
         return None
@@ -231,6 +231,24 @@ def import_about(about_json=ABOUT_JSON, db_file=DB_FILE):
     if not profile_url:
         print("  No profile_url in about.json — skipping")
         return None
+
+    if expected_profile_url:
+        from core.urls import normalize_instagram_target
+        try:
+            actual = normalize_instagram_target(profile_url)
+        except ValueError:
+            actual = profile_url.strip().rstrip('/').lower()
+        try:
+            expected = normalize_instagram_target(expected_profile_url)
+        except ValueError:
+            expected = expected_profile_url.strip().rstrip('/').lower()
+        if actual != expected:
+            msg = (
+                f"about.json profile_url mismatch: got {profile_url!r}, "
+                f"expected {expected_profile_url!r} — refusing"
+            )
+            print(f"  {msg}")
+            raise ValueError(msg)
 
     con = sqlite3.connect(db_file)
     cur = con.cursor()
@@ -507,7 +525,8 @@ def import_all(
     about_json=ABOUT_JSON,
     posts_json=POSTS_JSON,
     reels_json=REELS_JSON,
-    db_file=DB_FILE
+    db_file=DB_FILE,
+    expected_profile_url=None,
 ):
     print("\n" + "═" * 65)
     print("BIRDY-EDWARDS LITE — Instagram DB Importer")
@@ -515,9 +534,14 @@ def import_all(
 
     init_db(db_file)
 
-    profile_id = import_about(about_json, db_file)
+    profile_id = import_about(
+        about_json, db_file, expected_profile_url=expected_profile_url
+    )
 
     if not profile_id:
+        if expected_profile_url:
+            print("  About import refused or missing — cannot import for expected profile")
+            return None
         con = sqlite3.connect(db_file)
         cur = con.cursor()
         cur.execute("SELECT id FROM profiles ORDER BY id DESC LIMIT 1")
