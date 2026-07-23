@@ -30,12 +30,17 @@ venv/
 env/
 .venv/
 
-# ── Test files ────────────────────────────────────────────────────────────────
-test.py
-test_*.py
-debug_*.py
-app/test.py
-app/test_*.py
+# ── Test files (allow app/tests/ suite) ───────────────────────────────────────
+/test.py
+/test_*.py
+/debug_*.py
+/app/test.py
+/app/test_*.py
+!/app/tests/
+!/app/tests/**
+
+# ── Git worktrees ─────────────────────────────────────────────────────────────
+.worktrees/
 
 # ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
