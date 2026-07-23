@@ -2,7 +2,7 @@ import sqlite3
 import os
 from datetime import datetime
 
-DB_FILE = "socmint_lite.db"
+DB_FILE = "socmint_fb.db"
 
 def get_profile_id(db_file=DB_FILE):
     """Get the most recent profile ID from DB."""

@@ -24,6 +24,8 @@ MAX_IMG_PX    = 1200    # longest side limit before resize (lower = less RAM)
 CNN_MAX_PX    = 900     # if image > this after resize, fall back to HOG for CNN
 UPSAMPLE      = 1       # upsample passes for small-face detection
 FACE_DATA_DIR = 'face_data'
+# Anchor relative screenshot paths to app/ (parent of core/), not core/
+APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def run_face_clustering(db_file: str, profile_id: int):
     """
@@ -211,9 +213,9 @@ def _download_bytes(url: str) -> bytes | None:
         return None
 
 def _load_local_image(path: str) -> bytes | None:
-    """Load a local screenshot file as bytes."""
+    """Load a local screenshot file as bytes (paths relative to app/)."""
     try:
-        full = os.path.join(os.path.dirname(os.path.abspath(__file__)), path.lstrip('/'))
+        full = os.path.join(APP_DIR, path.lstrip('/'))
         if not os.path.exists(full):
             print(f"    ⚠ Screenshot not found: {full}")
             return None
@@ -496,6 +498,6 @@ def _save_to_db(db_file: str, profile_id: int, all_face_data: list, clusters: di
 # standalone test 
 if __name__ == '__main__':
     import sys
-    db  = sys.argv[1] if len(sys.argv) > 1 else 'socmint_lite.db'
+    db  = sys.argv[1] if len(sys.argv) > 1 else 'socmint_fb.db'
     pid = int(sys.argv[2]) if len(sys.argv) > 2 else 1
     run_face_clustering(db, pid)
