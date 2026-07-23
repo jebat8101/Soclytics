@@ -1,0 +1,17 @@
+{
+  "profile_url": "https://www.instagram.com/example/",
+  "owner_name": "Example User",
+  "username": "example",
+  "is_locked": false,
+  "bio": "hello",
+  "website": "https://example.com",
+  "followers": 10,
+  "following": 5,
+  "post_count": 3,
+  "sections": {
+    "profile": [
+      {"field_type": "bio", "label": "Bio", "value": "hello"},
+      {"field_type": "website", "label": "Website", "value": "https://example.com"}
+    ]
+  }
+}
