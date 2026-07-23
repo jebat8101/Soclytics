@@ -1,0 +1,11 @@
+{
+  "profile_url": "https://www.reddit.com/user/example/",
+  "owner_name": "example",
+  "is_locked": false,
+  "sections": {
+    "profile": [
+      {"field_type": "karma", "label": "Post Karma", "value": "123"},
+      {"field_type": "cake_day", "label": "Cake Day", "value": "2020-01-01"}
+    ]
+  }
+}

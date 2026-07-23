@@ -1,0 +1,11 @@
+[{
+  "post_url": "https://www.reddit.com/r/test/comments/abc/title/",
+  "title": "Hello",
+  "subreddit": "test",
+  "date": "2026-01-01",
+  "body": "world",
+  "score": 10,
+  "comments": [
+    {"name": "alice", "profile_url": "https://www.reddit.com/user/alice/", "comment_text": "hi"}
+  ]
+}]
