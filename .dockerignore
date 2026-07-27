@@ -1,0 +1,10 @@
+venv/
+.env
+.git
+.worktrees
+**/__pycache__/
+*.pyc
+app/face_data*/
+app/post_screenshots
+node_modules/
+docs/

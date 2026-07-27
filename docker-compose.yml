@@ -1,0 +1,35 @@
+services:
+  birdy-edwards-lite:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: birdy-edwards-lite
+    restart: unless-stopped
+    ports:
+      - "${PORT:-5000}:5000"
+    volumes:
+      - ./app/fb_cookies.pkl:/app/fb_cookies.pkl
+      - ./app/ig_cookies.pkl:/app/ig_cookies.pkl
+      - ./app/reddit_cookies.pkl:/app/reddit_cookies.pkl
+      - ./app/threads_cookies.pkl:/app/threads_cookies.pkl
+      - ./app/socmint_fb.db:/app/socmint_fb.db
+      - ./app/socmint_ig.db:/app/socmint_ig.db
+      - ./app/socmint_reddit.db:/app/socmint_reddit.db
+      - ./app/socmint_threads.db:/app/socmint_threads.db
+      - ./app/face_data:/app/face_data
+      - ./app/face_data_ig:/app/face_data_ig
+      - ./app/face_data_threads:/app/face_data_threads
+      - ./app/post_screenshots:/app/post_screenshots
+      - ./app/icons:/app/icons
+    environment:
+      - DISPLAY=:99
+      - PORT=5000
+      - PYTHONUNBUFFERED=1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/facebook/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
