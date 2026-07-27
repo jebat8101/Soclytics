@@ -1,17 +1,36 @@
 # ── Sensitive / Auth ──────────────────────────────────────────────────────────
 app/fb_cookies.pkl
+app/ig_cookies.pkl
+app/reddit_cookies.pkl
+app/threads_cookies.pkl
+*_cookies.pkl
 
 # ── Database ──────────────────────────────────────────────────────────────────
 app/socmint_lite.db
+app/socmint_fb.db
+app/socmint_ig.db
+app/socmint_reddit.db
+app/socmint_threads.db
+app/socmint_*.db
 
 # ── Data gathering JSON output ────────────────────────────────────────────────
 app/fb_about.json
 app/fb_photos.json
 app/fb_reels.json
 app/fb_posts.json
+app/ig_about.json
+app/ig_posts.json
+app/ig_reels.json
+app/reddit_about.json
+app/reddit_submissions.json
+app/threads_about.json
+app/threads_posts.json
 
 # ── Runtime directories ───────────────────────────────────────────────────────
 app/face_data/
+app/face_data_ig/
+app/face_data_threads/
+app/face_data_*/
 app/post_screenshots
 app/downloaded_files
 
