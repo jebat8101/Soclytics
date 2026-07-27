@@ -12,7 +12,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)]()
 [![LLM](https://img.shields.io/badge/LLM%20Required-None-brightgreen?style=flat-square)]()
 
-**Local-first multi-platform SOCMINT — Facebook, Instagram, and Reddit. No LLM, no Docker, no cloud dependency. For the AI-powered version see [birdy-edwards](https://github.com/jeet-ganguly/birdy-edwards).**
+**Local-first multi-platform SOCMINT — Facebook, Instagram, Reddit, and Threads. No LLM, no Docker, no cloud dependency. For the AI-powered version see [birdy-edwards](https://github.com/jeet-ganguly/birdy-edwards).**
 
 [Installation](#installation) · [Platforms](#platforms--mini-apps) · [Features](#features) · [Troubleshooting](#troubleshooting) · [Disclaimer](#️-disclaimer) · [Contributing](#contributing)
 
@@ -22,7 +22,7 @@
 
 ## What is Birdy-Edwards Lite?
 
-Birdy-Edwards Lite is a stripped-down, dependency-light edition of the full Birdy-Edwards SOCMINT platform. It runs three separate mini-apps — **Facebook**, **Instagram**, and **Reddit** — each with its own cookies, database, and investigation history.
+Birdy-Edwards Lite is a stripped-down, dependency-light edition of the full Birdy-Edwards SOCMINT platform. It runs four separate mini-apps — **Facebook**, **Instagram**, **Reddit**, and **Threads** — each with its own cookies, database, and investigation history.
 
 Each platform performs the same core workflow — data gathering, interaction mapping, network visualization, and (where applicable) face clustering — without requiring any AI model, Docker container, or cloud service.
 
@@ -46,6 +46,7 @@ Shared shell tabs switch between mini-apps:
 | Facebook | `/facebook` | `fb_cookies.pkl` | `socmint_fb.db` |
 | Instagram | `/instagram` | `ig_cookies.pkl` | `socmint_ig.db` |
 | Reddit | `/reddit` | `reddit_cookies.pkl` | `socmint_reddit.db` |
+| Threads | `/threads` | `threads_cookies.pkl` | `socmint_threads.db` |
 
 `/` redirects to `/facebook` for backward compatibility.
 
@@ -60,12 +61,14 @@ Shared shell tabs switch between mini-apps:
 | Facebook | Profile URL | — |
 | Instagram | `https://www.instagram.com/<user>/`, `@user`, or bare `user` | Stories, hashtags, locations |
 | Reddit | `https://www.reddit.com/user/<name>/` or `u/<name>` | Subreddits, search queries |
+| Threads | `https://www.threads.com/@<user>/`, `@user`, or bare `user` | Individual post URLs, search |
 
 ### Per-platform gather
 
 - **Facebook** — about, photos, reels, text posts + comments; face clustering
 - **Instagram** — about, posts, reels + comments; face clustering
 - **Reddit** — about, submissions + comments on those submissions; **no** face step
+- **Threads** — about, posts/threads + **likes / reposts / replies**; face clustering on image posts
 
 Auth is operator cookies + SeleniumBase only (no Graph API / no `praw`).
 
@@ -80,7 +83,7 @@ Auth is operator cookies + SeleniumBase only (no Graph API / no `praw`).
 - 💠 **Co-interactor force graph** — Force-directed cluster view of interactor co-occurrence relationships, fullscreen mode
 - 📈 **Interaction timeline** — Date-wise stacked bar chart of interactions
 - 🍩 **Distribution donut** — Breakdown of interactions by media / content type
-- 👤 **Face intelligence** — CNN / HOG face detection and clustering (**Facebook + Instagram only**; Reddit omits this step)
+- 👤 **Face intelligence** — CNN / HOG face detection and clustering (**Facebook + Instagram + Threads**; Reddit omits this step)
 - 🌳 **Face cluster tree** — Frequency-cascade hierarchy of detected persons (FB/IG)
 - 🎯 **Top 7 priority targets** — Highest-frequency interactors with about-data cards where available
 - 📋 **About data cards** — Target and Top 7 interactor profile fields
@@ -95,7 +98,7 @@ Auth is operator cookies + SeleniumBase only (no Graph API / no `praw`).
 > BIRDY-EDWARDS LITE is developed strictly for **authorized intelligence, law enforcement, and academic research purposes only.**
 >
 > **Scope of data access:**
-> - This tool operates exclusively using a valid platform session authenticated by the operator (Facebook, Instagram, or Reddit cookies)
+> - This tool operates exclusively using a valid platform session authenticated by the operator (Facebook, Instagram, Reddit, or Threads cookies)
 > - It only accesses **publicly visible** profile data, posts/submissions, media, and comments
 > - It does **not** access private messages, locked profiles, restricted content, or any data not visible to a logged-in user
 > - It does **not** use bots, fake accounts, or automated account creation — the operator supplies their own authenticated session
@@ -215,6 +218,7 @@ Birdy-Edwards Lite uses the **Cookie-Editor** browser extension. Each mini-app h
 | Facebook | `fb_cookies.pkl` | `c_user`, `xs` |
 | Instagram | `ig_cookies.pkl` | `sessionid` |
 | Reddit | `reddit_cookies.pkl` | `reddit_session` or `token_v2` |
+| Threads | `threads_cookies.pkl` | `sessionid` (from threads.com) |
 
 > Cookies expire periodically. Re-import fresh cookies if the pipeline fails at the data gathering stage.
 
@@ -316,7 +320,7 @@ Then open a Pull Request against `main`.
 **Code guidelines:**
 - Python 3.12, Flask conventions
 - Test locally before submitting
-- Do not commit `fb_cookies.pkl`, `ig_cookies.pkl`, `reddit_cookies.pkl`, databases, or any gathered data
+- Do not commit `fb_cookies.pkl`, `ig_cookies.pkl`, `reddit_cookies.pkl`, `threads_cookies.pkl`, databases, or any gathered data
 - Keep gatherer changes minimal — platform DOMs change frequently
 
 **What we welcome:** bug fixes, UI improvements, new chart types, dashboard features, documentation improvements, stability improvements.
@@ -338,6 +342,6 @@ Then open a Pull Request against `main`.
 
 <div align="center">
 
-**BIRDY-EDWARDS LITE** · Infiltrate & Expose · No LLM · Local-First · Facebook · Instagram · Reddit
+**BIRDY-EDWARDS LITE** · Infiltrate & Expose · No LLM · Local-First · Facebook · Instagram · Reddit · Threads
 
 </div>

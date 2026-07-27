@@ -1,4 +1,4 @@
-"""Assert Instagram/Reddit templates use platform-prefixed API paths."""
+"""Assert platform templates use platform-prefixed API paths."""
 import os
 import re
 
@@ -12,9 +12,13 @@ REDDIT_TEMPLATES = [
     os.path.join(TEMPLATES_DIR, 'reddit', 'index.html'),
     os.path.join(TEMPLATES_DIR, 'reddit', 'analysis.html'),
 ]
+THREADS_TEMPLATES = [
+    os.path.join(TEMPLATES_DIR, 'threads', 'index.html'),
+    os.path.join(TEMPLATES_DIR, 'threads', 'analysis.html'),
+]
 
-# Bare fetch to unprefixed /api/ — must never appear in IG/Reddit templates
-BARE_FETCH_RE = re.compile(r"""fetch\s*\(\s*['`]/api/""")
+# Bare fetch to unprefixed /api/ — must never appear in platform templates
+BARE_FETCH_RE = re.compile(r"""fetch\s*\(\s*['`']/api/""")
 
 
 def _read(path: str) -> str:
@@ -39,4 +43,14 @@ def test_reddit_templates_use_platform_api_prefix():
         assert '/reddit/api/' in src, f'{path} missing /reddit/api/ paths'
         assert not BARE_FETCH_RE.search(src), (
             f'{path} contains bare fetch(\'/api/ — use /reddit/api/ instead'
+        )
+
+
+def test_threads_templates_use_platform_api_prefix():
+    for path in THREADS_TEMPLATES:
+        src = _read(path)
+        assert os.path.isfile(path), f'missing template: {path}'
+        assert '/threads/api/' in src, f'{path} missing /threads/api/ paths'
+        assert not BARE_FETCH_RE.search(src), (
+            f'{path} contains bare fetch(\'/api/ — use /threads/api/ instead'
         )

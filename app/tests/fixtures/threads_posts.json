@@ -1,0 +1,37 @@
+[
+  {
+    "post_url": "https://www.threads.com/@example/post/AaBbCcDd",
+    "date": "2026-07-01",
+    "caption": "hello world",
+    "image_src": "https://cdn.example/img.jpg",
+    "media_type": "image",
+    "replies": [
+      {
+        "name": "alice",
+        "profile_url": "https://www.threads.com/@alice/",
+        "comment_text": "nice post"
+      },
+      {
+        "name": "bob",
+        "profile_url": "https://www.threads.com/@bob/",
+        "comment_text": "agreed"
+      }
+    ],
+    "likes": [
+      {
+        "name": "bob",
+        "profile_url": "https://www.threads.com/@bob/"
+      },
+      {
+        "name": "carol",
+        "profile_url": "https://www.threads.com/@carol/"
+      }
+    ],
+    "reposts": [
+      {
+        "name": "bob",
+        "profile_url": "https://www.threads.com/@bob/"
+      }
+    ]
+  }
+]

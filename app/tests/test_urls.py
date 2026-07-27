@@ -1,5 +1,9 @@
 import pytest
-from core.urls import normalize_instagram_target, normalize_reddit_target
+from core.urls import (
+    normalize_instagram_target,
+    normalize_reddit_target,
+    normalize_threads_target,
+)
 
 @pytest.mark.parametrize('raw,expected', [
     ('natgeo', 'https://www.instagram.com/natgeo/'),
@@ -36,3 +40,21 @@ def test_reddit_ok(raw, expected):
 def test_reddit_reject(raw):
     with pytest.raises(ValueError):
         normalize_reddit_target(raw)
+
+@pytest.mark.parametrize('raw,expected', [
+    ('natgeo', 'https://www.threads.com/@natgeo/'),
+    ('@natgeo', 'https://www.threads.com/@natgeo/'),
+    ('https://www.threads.com/@natgeo', 'https://www.threads.com/@natgeo/'),
+    ('https://www.threads.com/@natgeo/', 'https://www.threads.com/@natgeo/'),
+])
+def test_threads_ok(raw, expected):
+    assert normalize_threads_target(raw) == expected
+
+@pytest.mark.parametrize('raw', [
+    'https://www.threads.com/@natgeo/post/ABC',
+    'https://www.threads.com/search',
+    '',
+])
+def test_threads_reject(raw):
+    with pytest.raises(ValueError):
+        normalize_threads_target(raw)

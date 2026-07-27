@@ -1,0 +1,18 @@
+{
+  "profile_url": "https://www.threads.com/@example/",
+  "owner_name": "Example User",
+  "username": "example",
+  "is_locked": false,
+  "bio": "hello threads",
+  "website": "https://example.com",
+  "followers": 10,
+  "following": 5,
+  "sections": {
+    "profile": [
+      {"field_type": "bio", "label": "Bio", "value": "hello threads"},
+      {"field_type": "website", "label": "Website", "value": "https://example.com"},
+      {"field_type": "followers", "label": "Followers", "value": "10"},
+      {"field_type": "following", "label": "Following", "value": "5"}
+    ]
+  }
+}
