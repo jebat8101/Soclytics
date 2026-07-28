@@ -36,7 +36,7 @@ Everything runs on your local machine. No GPU required. No model downloads. No o
 ## Architecture
 
 <div align="center">
-<img src="app/icons/workflow.png" alt="BIRDY-EDWARDS LITE Pipeline" width="100%"/>
+<img src="app/icons/workflow-lite.png" alt="BIRDY-EDWARDS LITE Pipeline" width="100%"/>
 </div>
 
 Shared shell tabs switch between mini-apps:
