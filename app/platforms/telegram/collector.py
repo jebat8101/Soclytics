@@ -139,12 +139,25 @@ def _safe(token) -> str:
     return re.sub(r"[^\w.-]+", "_", str(token))[:80]
 
 
+def _rel_under_app(path: str | None) -> str | None:
+    """Store media/caption paths relative to app/ so Flask routes can resolve them."""
+    if not path:
+        return path
+    if not os.path.isabs(path):
+        return path.replace("\\", "/")
+    try:
+        rel = os.path.relpath(path, BASE_DIR)
+    except ValueError:
+        return path
+    return rel.replace("\\", "/")
+
+
 def _write_caption_txt(code, caption) -> str:
     os.makedirs(TEXT_DIR, exist_ok=True)
     path = os.path.join(TEXT_DIR, f"telegram_{_safe(code)}.txt")
     with open(path, "w", encoding="utf-8") as f:
         f.write(caption or "")
-    return path
+    return _rel_under_app(path)
 
 
 def _field(label, value, field_type="name", sub_label=None) -> dict:
@@ -178,13 +191,13 @@ def _download_file(url: str, dest: str) -> str | None:
     try:
         os.makedirs(MEDIA_DIR, exist_ok=True)
         if os.path.exists(dest) and os.path.getsize(dest) > 500:
-            return dest
+            return _rel_under_app(dest)
         r = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=40)
         if r.status_code != 200 or len(r.content) < 200:
             return None
         with open(dest, "wb") as f:
             f.write(r.content)
-        return dest
+        return _rel_under_app(dest)
     except Exception:
         return None
 
@@ -262,12 +275,14 @@ async def _download_message_media(client, msg, username) -> str | None:
     os.makedirs(MEDIA_DIR, exist_ok=True)
     dest = os.path.join(MEDIA_DIR, f"telegram_{_safe(username)}_{msg.id}.jpg")
     if os.path.exists(dest) and os.path.getsize(dest) > 500:
-        return dest
+        return _rel_under_app(dest)
     try:
         if _media_kind(msg) == "reel":
             # thumbnail only — full videos are large and add nothing to face work
-            return await client.download_media(msg, file=dest, thumb=-1)
-        return await client.download_media(msg, file=dest)
+            path = await client.download_media(msg, file=dest, thumb=-1)
+        else:
+            path = await client.download_media(msg, file=dest)
+        return _rel_under_app(path or dest) if path or os.path.exists(dest) else None
     except Exception as e:
         print(f"   media {msg.id}: {e}")
         return None
@@ -420,7 +435,7 @@ async def _sender_avatar_photos(client, profile_url, counts, entities, budget) -
         photos.append({
             "photo_url": f"{profile_url}#avatar-{_safe(url)}",
             "date": None,
-            "image_src": path,
+            "image_src": _rel_under_app(path),
             "caption": f"Profile photo of {ident['name']} — {hits} "
                        f"interaction{'s' if hits != 1 else ''} in this chat",
             "comments": [],
@@ -552,7 +567,7 @@ async def _collect_user_photos(client, entity, profile_url, username, max_photos
             photos.append({
                 "photo_url": f"{profile_url}#photo{pic.id}",
                 "date": pic.date.strftime("%Y-%m-%d") if getattr(pic, "date", None) else None,
-                "image_src": path,
+                "image_src": _rel_under_app(path),
                 "caption": f"Profile photo of @{username}",
                 "comments": [],
             })
