@@ -3,6 +3,8 @@ from core.urls import (
     normalize_instagram_target,
     normalize_reddit_target,
     normalize_threads_target,
+    normalize_telegram_target,
+    extract_telegram_username,
 )
 
 @pytest.mark.parametrize('raw,expected', [
@@ -58,3 +60,23 @@ def test_threads_ok(raw, expected):
 def test_threads_reject(raw):
     with pytest.raises(ValueError):
         normalize_threads_target(raw)
+
+@pytest.mark.parametrize('raw,expected', [
+    ('telegram', 'https://t.me/telegram'),
+    ('@durov', 'https://t.me/durov'),
+    ('https://t.me/telegram', 'https://t.me/telegram'),
+    ('https://t.me/s/telegram', 'https://t.me/telegram'),
+    ('t.me/durov', 'https://t.me/durov'),
+])
+def test_telegram_ok(raw, expected):
+    assert normalize_telegram_target(raw) == expected
+    assert extract_telegram_username(raw) is not None
+
+@pytest.mark.parametrize('raw', [
+    'https://t.me/+AbCdEfGh',
+    'https://t.me/joinchat/XXXX',
+    '',
+])
+def test_telegram_reject(raw):
+    with pytest.raises(ValueError):
+        normalize_telegram_target(raw)

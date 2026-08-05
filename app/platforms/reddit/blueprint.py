@@ -25,6 +25,7 @@ from platforms.reddit.about_sb import main as scrape_about
 from platforms.reddit.submissions_sb import main as scrape_submissions
 
 from core.pipeline import make_pipeline_state, reset_pipeline, set_step, finish_pipeline
+from core.report_routes import register_report_routes
 from core.scoring import (
     get_profile_id,
     get_all_interactors,
@@ -41,6 +42,7 @@ os.makedirs(ICONS_DIR, exist_ok=True)
 pipeline_state = make_pipeline_state(PIPELINE_STEPS)
 
 reddit_bp = Blueprint('reddit', __name__, url_prefix='/reddit')
+register_report_routes(reddit_bp, DB_FILE, 'reddit')
 
 
 @reddit_bp.route('/')

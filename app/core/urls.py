@@ -1,9 +1,10 @@
 import re
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 
 _IG_USER = re.compile(r'^[A-Za-z0-9._]{1,30}$')
 _RD_USER = re.compile(r'^[A-Za-z0-9_-]{3,20}$')
 _TH_USER = re.compile(r'^[A-Za-z0-9._]{1,30}$')
+_TG_USER = re.compile(r'^[A-Za-z0-9_]{4,32}$')
 
 def normalize_instagram_target(raw: str) -> str:
     s = (raw or '').strip()
@@ -76,3 +77,41 @@ def normalize_threads_target(raw: str) -> str:
     if len(parts) > 1:
         raise ValueError('Threads target must be a profile URL, not a post URL')
     return f'https://www.threads.com/@{user}/'
+
+
+def extract_telegram_username(url: str) -> str | None:
+    """Parse a public @username from t.me links, bare @user, or t.me/s/user."""
+    url = (url or '').strip()
+    if not url.startswith(('http://', 'https://')):
+        bare = url[1:] if url.startswith('@') else url
+        if _TG_USER.fullmatch(bare):
+            return bare
+        url = 'https://' + url
+    path = unquote(urlparse(url).path).strip('/')
+    if not path:
+        return None
+    parts = path.split('/')
+    first = parts[0]
+    if first == 's' and len(parts) > 1:
+        first = parts[1]
+    if first.startswith('@'):
+        first = first[1:]
+    if first.startswith('+') or first in (
+        'joinchat', 'c', 'share', 'addstickers', 'proxy', 'socks', 'login', 'iv',
+    ):
+        return None
+    if _TG_USER.fullmatch(first):
+        return first
+    return None
+
+
+def normalize_telegram_target(raw: str) -> str:
+    s = (raw or '').strip()
+    if not s:
+        raise ValueError('empty Telegram target')
+    username = extract_telegram_username(s)
+    if not username:
+        raise ValueError(
+            'Telegram invite links have no public username — use t.me/<channel> or @name'
+        )
+    return f'https://t.me/{username}'

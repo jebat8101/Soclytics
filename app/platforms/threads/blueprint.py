@@ -16,6 +16,7 @@ from core.browser import (
 )
 from core.paths import safe_under
 from core.pipeline import finish_pipeline, make_pipeline_state, reset_pipeline, set_step
+from core.report_routes import register_report_routes
 from core.scoring import (
     get_cocomment_graph,
     get_graph_data,
@@ -47,6 +48,7 @@ os.makedirs(FACE_DIR, exist_ok=True)
 
 pipeline_state = make_pipeline_state(PIPELINE_STEPS)
 threads_bp = Blueprint('threads', __name__, url_prefix='/threads')
+register_report_routes(threads_bp, DB_FILE, 'threads')
 
 
 @threads_bp.route('/')

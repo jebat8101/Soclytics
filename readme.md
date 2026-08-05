@@ -119,7 +119,8 @@ Auth is operator cookies + SeleniumBase only (no Graph API / no `praw`).
 | Capability | Lite | Full (AI) |
 |---|:---:|:---:|
 | Profile data gathering | ✅ | ✅ |
-| Facebook / Instagram / Reddit mini-apps | ✅ | — |
+| Facebook / Instagram / Reddit / Threads / Telegram | ✅ | — |
+
 | Interaction frequency scoring | ✅ | ✅ |
 | Network + co-interactor graphs | ✅ | ✅ |
 | Timeline + donut charts | ✅ | ✅ |
@@ -129,7 +130,8 @@ Auth is operator cookies + SeleniumBase only (no Graph API / no `praw`).
 | Actor composite scoring | ❌ | ✅ |
 | Country of origin detection | ❌ | ✅ |
 | World map visualization | ❌ | ✅ |
-| PDF intelligence report | ❌ | ✅ |
+| PDF intelligence report | ✅ | ✅ |
+| JSON report export | ✅ | ✅ |
 | Docker deployment | ❌ | ✅ |
 | LLM required | ❌ None | ✅ Ollama |
 | GPU required | ❌ | ✅ Recommended |
@@ -194,6 +196,8 @@ http://localhost:5000          → redirects to /facebook
 http://localhost:5000/facebook
 http://localhost:5000/instagram
 http://localhost:5000/reddit
+http://localhost:5000/threads
+http://localhost:5000/telegram
 ```
 
 ---
@@ -224,11 +228,36 @@ Birdy-Edwards Lite uses the **Cookie-Editor** browser extension. Each mini-app h
 
 ---
 
+## Telegram Setup
+
+Telegram does **not** use browser cookies — it uses MTProto (Telethon) with an optional public-preview fallback.
+
+| Mode | Requirements | What you get |
+|---|---|---|
+| **MTProto** (recommended) | `telethon` + `TG_API_ID` / `TG_API_HASH` + authorized session | Posts, media, discussion comments, reactors, forwards, mentions, admins |
+| **Public preview** | Nothing | Posts/media/views from `t.me/s/<name>` — no commenters |
+
+```bash
+# 1. Get api_id + api_hash from https://my.telegram.org
+# 2. Authorize once (interactive phone + code):
+source venv/bin/activate
+python3 scripts/telegram-login.py
+
+# Or via env vars:
+export TG_API_ID=12345
+export TG_API_HASH=abcdef...
+python3 scripts/telegram-login.py
+```
+
+Then open **http://localhost:5000/telegram**, paste `t.me/channel` or `@name`, pick depth, and **LAUNCH**.
+
+---
+
 ## Running an Investigation
 
-1. Open the platform tab (`/facebook`, `/instagram`, or `/reddit`)
-2. Verify the cookie status bar shows ✓ green
-3. Enter a **profile-only** target URL (see [Targets](#targets-profile-only))
+1. Open the platform tab (`/facebook`, `/instagram`, `/reddit`, `/threads`, or `/telegram`)
+2. Verify the cookie / session status bar (Telegram: public preview always works)
+3. Enter a **profile-only** target URL
 4. Select scan depth (Light / Medium / Deep)
 5. Click **LAUNCH PIPELINE** / **START INVESTIGATION**
 6. The pipeline overlay shows live progress (Reddit omits the face step)
@@ -253,6 +282,17 @@ The dashboard renders gathered intelligence without server-side AI processing.
 | **Face Cluster Tree** | Frequency-cascade tree (**Facebook + Instagram only**) |
 
 Clicking any node or interactor row opens a side panel with interaction samples and profile link.
+
+### Download report (PDF / JSON)
+
+From any analysis dashboard top bar:
+
+| Button | Endpoint | Contents |
+|---|---|---|
+| **↓ PDF** | `/{platform}/reports/pdf/<id>` | Full SOCMINT PDF (summary, network, interactors, Top-7, posts, comments, timeline, faces) |
+| **↓ JSON** | `/{platform}/reports/json/<id>` | Same dataset as machine-readable JSON |
+
+Files are written under `app/reports/` and downloaded by the browser. Requires `reportlab` and `matplotlib` (installed by `setup.sh`).
 
 ---
 

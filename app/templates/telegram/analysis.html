@@ -123,7 +123,7 @@
             width: 44px;
             height: 44px;
             border-radius: 8px;
-            background-image: url('/reddit/logo');
+            background-image: url('/telegram/logo');
             background-size: cover;
             background-position: center;
             border: 1px solid var(--accent-dim);
@@ -272,7 +272,7 @@
             width: 72px;
             height: 72px;
             border-radius: 50%;
-            background-image: url('/reddit/threat');
+            background-image: url('/telegram/threat');
             background-size: cover;
             background-position: center;
             border: 1px solid var(--accent-dim);
@@ -828,7 +828,7 @@
             width: 84px;
             height: 84px;
             border-radius: 50%;
-            background-image: url('/reddit/user');
+            background-image: url('/telegram/user');
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1827,15 +1827,15 @@
                 <div class="subtitle">Infiltrate &amp; Expose · Intel Console</div>
             </div>
         </div>
-        {% set active_platform = 'reddit' %}
+        {% set active_platform = 'telegram' %}
         {% include '_shell.html' %}
         <div class="topbar-right">
             <div class="status-pill"><span class="status-dot"></span> <span id="statusText">ANALYSIS LOADED</span></div>
-            <a href="/reddit/reports/pdf/{{ profile_id }}" class="pdf-btn" id="pdfBtn"
+            <a href="/telegram/reports/pdf/{{ profile_id }}" class="pdf-btn" id="pdfBtn"
                 onclick="return downloadReport(event, 'pdf')">↓ PDF</a>
-            <a href="/reddit/reports/json/{{ profile_id }}" class="json-btn" id="jsonBtn"
+            <a href="/telegram/reports/json/{{ profile_id }}" class="json-btn" id="jsonBtn"
                 onclick="return downloadReport(event, 'json')">↓ JSON</a>
-            <a href="/reddit/" class="back-btn">← HOME</a>
+            <a href="/telegram/" class="back-btn">← HOME</a>
             <button class="theme-toggle" onclick="toggleTheme()"><span id="themeIcon">☾</span> <span
                     id="themeLabel">DARK</span></button>
         </div>
@@ -1860,6 +1860,10 @@
             <div class="quick-stat">
                 <div class="num" id="statInteractors">–</div>
                 <div class="lbl">Interactors</div>
+            </div>
+            <div class="quick-stat">
+                <div class="num" id="statFaces">–</div>
+                <div class="lbl">Faces</div>
             </div>
         </div>
     </div>
@@ -1992,10 +1996,19 @@
             <div class="force-wrap" id="forceWrap"></div>
         </div>
 
-        <!-- PHOTO / REEL stubs hidden — Reddit uses submissions only -->
-        <div class="card span-12" style="display:none" aria-hidden="true">
+        <div class="card span-12">
             <div class="card-head">
-                <div class="card-title">Photo Posts · Stub (unused)</div>
+                <div class="card-title">Face Clustering Tree · Frequency Cascade</div>
+                <div class="card-meta" id="facesMeta">– FACES · – CLUSTERS</div>
+            </div>
+            <div class="faces-wrap" id="facesWrap">
+                <div class="loading">LOADING</div>
+            </div>
+        </div>
+        <!-- PHOTO POSTS GALLERY -->
+        <div class="card span-12">
+            <div class="card-head">
+                <div class="card-title">Photo Posts · Collected Gallery</div>
                 <div class="card-meta" id="photoPostsMeta">– POSTS</div>
             </div>
             <div class="post-gallery" id="photoGallery">
@@ -2003,10 +2016,10 @@
             </div>
         </div>
 
-        <!-- TEXT POSTS GALLERY (submissions) -->
+        <!-- TEXT POSTS GALLERY -->
         <div class="card span-12">
             <div class="card-head">
-                <div class="card-title">Submissions · Collected Gallery</div>
+                <div class="card-title">Text Posts · Collected Gallery</div>
                 <div class="card-meta" id="textPostsMeta">– POSTS</div>
             </div>
             <div class="post-gallery" id="textGallery">
@@ -2014,8 +2027,8 @@
             </div>
         </div>
 
-        <!-- REELS TABLE (hidden stub) -->
-        <div class="card span-12" style="display:none" aria-hidden="true">
+        <!-- REELS TABLE -->
+        <div class="card span-12">
             <div class="card-head">
                 <div class="card-title">Reels · Collected Index</div>
                 <div class="card-meta" id="reelsMeta">– REELS</div>
@@ -2045,7 +2058,7 @@
     <div class="footer">
         <div class="footer-left">
             <span>PIPELINE · <strong>SELENIUMBASE</strong></span>
-            <span>MODEL · <strong>FREQUENCY + GRAPH</strong></span>
+            <span>MODEL · <strong>CNN / HOG FACE_RECOGNITION</strong></span>
             <span>MODE · <strong>LITE (NO LLM)</strong></span>
         </div>
         <div>BIRDY-EDWARDS v0.9 · AUTHORIZED USE ONLY</div>
@@ -2083,7 +2096,7 @@
     <script>
         const params = new URLSearchParams(window.location.search);
         const PROFILE = parseInt(params.get('id') || '0', 10);
-        const PLATFORM_PREFIX = '/reddit';
+        const PLATFORM_PREFIX = '/facebook';
 
         async function downloadReport(ev, fmt) {
             if (ev) ev.preventDefault();
@@ -2138,6 +2151,7 @@
         let TOP7 = [];
         let GRAPH = null;
         let COCOMMENT = null;
+        let FACES = [];
 
         const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
         const fmt = n => (n == null ? '–' : Number(n).toLocaleString());
@@ -2192,18 +2206,19 @@
             }
             document.getElementById('caseId').textContent = String(PROFILE).padStart(4, '0');
 
-            const [summary, interactors, top7, graph, cocomment, timeline, counts,
+            const [summary, interactors, top7, graph, cocomment, timeline, counts, faces,
                 photoPosts, textPosts, reelPosts] = await Promise.all([
-                    api(`/reddit/api/profile-summary/${PROFILE}`),
-                    api(`/reddit/api/all-interactors/${PROFILE}`),
-                    api(`/reddit/api/top7/${PROFILE}`),
-                    api(`/reddit/api/graph-data/${PROFILE}`),
-                    api(`/reddit/api/cocomment-graph/${PROFILE}`),
-                    api(`/reddit/api/timeline/${PROFILE}`),
-                    api(`/reddit/api/post-type-counts/${PROFILE}`),
-                    api(`/reddit/api/photo-posts/${PROFILE}`),
-                    api(`/reddit/api/text-posts/${PROFILE}`),
-                    api(`/reddit/api/reel-posts/${PROFILE}`),
+                    api(`/telegram/api/profile-summary/${PROFILE}`),
+                    api(`/telegram/api/all-interactors/${PROFILE}`),
+                    api(`/telegram/api/top7/${PROFILE}`),
+                    api(`/telegram/api/graph-data/${PROFILE}`),
+                    api(`/telegram/api/cocomment-graph/${PROFILE}`),
+                    api(`/telegram/api/timeline/${PROFILE}`),
+                    api(`/telegram/api/post-type-counts/${PROFILE}`),
+                    api(`/telegram/api/face-clusters/${PROFILE}`),
+                    api(`/telegram/api/photo-posts/${PROFILE}`),
+                    api(`/telegram/api/text-posts/${PROFILE}`),
+                    api(`/telegram/api/reel-posts/${PROFILE}`),
                 ]);
 
             if (summary.ok && summary.data) {
@@ -2228,6 +2243,13 @@
             if (timeline.ok) renderTimeline(timeline.data || []);
             if (graph.ok) { GRAPH = graph.data; renderNetwork(); }
             if (cocomment.ok) { COCOMMENT = cocomment.data; renderMatrix(); renderForce(); }
+            if (faces.ok) {
+                FACES = faces.data || [];
+                const total = FACES.reduce((s, c) => s + (c.appearance_count || 0), 0);
+                document.getElementById('statFaces').textContent = fmt(total);
+                document.getElementById('facesMeta').textContent = `${total} FACES · ${FACES.length} CLUSTERS`;
+                renderFacesTree();
+            }
             if (photoPosts.ok) renderPhotoGallery(photoPosts.data || []);
             if (textPosts.ok) renderTextGallery(textPosts.data || []);
             if (reelPosts.ok) renderReelTable(reelPosts.data || []);
@@ -2691,7 +2713,181 @@
             });
         }
 
-        // Face clustering omitted for Reddit (no image downloads / face step).
+        // ============================================================
+        //  FACE TREE — TIERED CASCADE (option B)
+        //
+        //  Build hierarchy: target → tier(largest count) → tier(next) → …
+        //  Clusters with the same appearance_count sit at the SAME depth as
+        //  siblings of one parent. The next smaller tier hangs off the LAST
+        //  cluster of the prior tier — giving a clean L→R cascade.
+        //
+        //  Example with counts [7, 5, 5, 3, 1]:
+        //      TARGET ── 7 ── 5 ── 3 ── 1
+        //                 └── 5 ──┘
+        //
+        //  NOTE: Frequency-cascade RANKING — not a social hierarchy.
+        // ============================================================
+        function buildFaceCascade(clusters) {
+            if (!clusters.length) return null;
+            const sorted = [...clusters].sort((a, b) => (b.appearance_count || 0) - (a.appearance_count || 0));
+            const tiers = [];
+            let cur = null;
+            for (const c of sorted) {
+                if (!cur || c.appearance_count !== cur.count) {
+                    cur = { count: c.appearance_count, items: [] };
+                    tiers.push(cur);
+                }
+                cur.items.push(c);
+            }
+            const target = { name: 'TARGET', isTarget: true, children: [] };
+            let parent = target;
+            for (const tier of tiers) {
+                const tierNodes = tier.items.map(c => ({
+                    cluster_id: c.id,
+                    name: c.person_label,
+                    count: c.appearance_count,
+                    rep: c.representative_face,
+                    children: []
+                }));
+                parent.children = tierNodes;
+                // next tier hangs off the last sibling of this tier
+                parent = tierNodes[tierNodes.length - 1];
+            }
+            return target;
+        }
+
+        function renderFacesTree() {
+            const wrap = document.getElementById('facesWrap');
+            wrap.innerHTML = '';
+            if (!FACES.length) { wrap.innerHTML = '<div class="empty">NO FACE CLUSTERS</div>'; return; }
+
+            const cascade = buildFaceCascade(FACES);
+            if (!cascade) { wrap.innerHTML = '<div class="empty">NO FACE CLUSTERS</div>'; return; }
+
+            const root = d3.hierarchy(cascade);
+            const depth = (root.height || 0) + 1;
+            // breadth = max number of nodes at any depth level
+            const counts = {};
+            root.descendants().forEach(d => { counts[d.depth] = (counts[d.depth] || 0) + 1; });
+            const maxBreadth = Math.max(1, ...Object.values(counts));
+
+            const colWidth = 170;
+            const rowHeight = 90;
+            const w = Math.max(wrap.clientWidth - 30, 220 + depth * colWidth);
+            const h = Math.max(380, 80 + maxBreadth * rowHeight);
+
+            const svg = d3.select(wrap).append('svg').attr('width', w).attr('height', h);
+            const tree = d3.tree().size([h - 80, w - 240]);
+            tree(root);
+
+            const g = svg.append('g').attr('transform', 'translate(110, 40)');
+
+            // EDGES — white in dark
+            g.append('g').selectAll('path').data(root.links()).join('path')
+                .attr('d', d3.linkHorizontal().x(d => d.y).y(d => d.x))
+                .attr('fill', 'none')
+                .attr('stroke', cssVar('--edge'))
+                .attr('stroke-width', 1.6)
+                .attr('stroke-opacity', 0.9);
+
+            const nodeG = g.append('g').selectAll('g').data(root.descendants()).join('g')
+                .attr('transform', d => `translate(${d.y},${d.x})`);
+
+            // target node
+            const target = nodeG.filter(d => d.data.isTarget);
+            target.append('circle')
+                .attr('r', 22)
+                .attr('fill', cssVar('--accent-bright'))
+                .attr('stroke', cssVar('--accent')).attr('stroke-width', 2)
+                .style('filter', 'drop-shadow(0 0 12px var(--accent-glow))');
+            target.append('text')
+                .attr('dy', 5).attr('text-anchor', 'middle')
+                .attr('font-size', 11).attr('font-weight', 900)
+                .attr('fill', cssVar('--bg'))
+                .text('');
+
+            // cluster nodes (everything except target)
+            const leaves = nodeG.filter(d => !d.data.isTarget);
+
+            leaves.append('foreignObject')
+                .attr('x', -25).attr('y', -25).attr('width', 50).attr('height', 50)
+                .append('xhtml:div')
+                .html(d => {
+                    const url = faceImageUrl(d.data.rep);
+                    const fallback = `<div class="face-node-fallback" data-cid="${d.data.cluster_id}" style="background:${freqColor(d.data.count)}">${initials(d.data.name)}</div>`;
+                    if (!url) return fallback;
+                    return `<img class="face-node-img" data-cid="${d.data.cluster_id}" src="${url}" alt="${escapeHtml(d.data.name)}" onerror="this.outerHTML=this.dataset.fallback" data-fallback='${fallback.replace(/'/g, "&#039;")}'/>`;
+                });
+
+            leaves.append('text')
+                .attr('dy', 40).attr('text-anchor', 'middle')
+                .attr('font-size', 11).attr('font-weight', 700)
+                .attr('fill', cssVar('--text'))
+                .text(d => d.data.name);
+            leaves.append('text')
+                .attr('dy', 54).attr('text-anchor', 'middle')
+                .attr('font-size', 10).attr('font-weight', 700)
+                .attr('fill', cssVar('--text-faint'))
+                .text(d => `${d.data.count} appearance${d.data.count === 1 ? '' : 's'}`);
+
+            // delegated click — works for both <img> and fallback <div>
+            wrap.addEventListener('click', e => {
+                const t = e.target.closest('[data-cid]');
+                if (!t) return;
+                const cid = parseInt(t.dataset.cid, 10);
+                if (!isNaN(cid)) showFaceCluster(cid);
+            });
+        }
+
+        function faceImageUrl(p) {
+            if (!p) return '';
+            return '/telegram/face-image/' + p.replace(/^\/+/, '');
+        }
+
+        async function showFaceCluster(clusterId) {
+            const cluster = FACES.find(c => c.id === clusterId);
+            if (!cluster) return;
+
+            openPanel({
+                title: 'FACE CLUSTER',
+                name: cluster.person_label,
+                sub: `${cluster.appearance_count} APPEARANCES · CLUSTER #${cluster.id}`,
+                bodyHtml: `<div class="loading">LOADING CLUSTER IMAGES</div>`
+            });
+
+            let imgs = [];
+            try {
+                const res = await fetch(`/telegram/api/face-cluster/${clusterId}/members`);
+                if (res.ok) {
+                    const j = await res.json();
+                    if (j.ok && Array.isArray(j.data)) {
+                        imgs = j.data.map(m => m.face_image_path).filter(Boolean);
+                    }
+                }
+            } catch (e) { /* fall through */ }
+
+            if (!imgs.length && cluster.representative_face) imgs = [cluster.representative_face];
+
+            const body = imgs.length ? `
+        <div class="side-panel-stats">
+            <div class="side-panel-stat"><div class="v">${cluster.appearance_count}</div><div class="k">Appearances</div></div>
+            <div class="side-panel-stat"><div class="v">${imgs.length}</div><div class="k">Crops</div></div>
+            <div class="side-panel-stat"><div class="v">#${cluster.id}</div><div class="k">Cluster</div></div>
+        </div>
+        <div class="side-panel-section-title">All Crops in Cluster</div>
+        <div class="face-grid">
+            ${imgs.map(p => `<img src="${faceImageUrl(p)}" alt="face" onerror="this.style.display='none'"/>`).join('')}
+        </div>
+        <div class="side-panel-section-title" style="margin-top:18px">Notes</div>
+        <div class="comment-item">
+            <div class="comment-text" style="color:var(--text-dim); font-size:12px">
+                Frequency cascade ranking — this is not a social hierarchy. Clusters are independent groups of distinct people, ordered by face count.
+            </div>
+        </div>
+    ` : `<div class="empty">NO IMAGES FOR THIS CLUSTER</div>`;
+
+            document.getElementById('panelBody').innerHTML = body;
+        }
 
         // ============================================================
         //  ABOUT-DATA INLINE CARD
@@ -2780,7 +2976,7 @@
             if (TOP7.length) renderTop7();
             if (GRAPH) renderNetwork();
             if (COCOMMENT) { renderMatrix(); renderForce(); }
-            /* face UI disabled for Reddit */
+            if (FACES.length) renderFacesTree();
         }
 
         window.addEventListener('resize', () => {
@@ -3086,7 +3282,7 @@
             if (!posts.length) { c.innerHTML = '<div class="empty">NO TEXT POSTS</div>'; return; }
             c.innerHTML = posts.map(p => {
                 const screenshotUrl = p.screenshot_path
-                    ? `/reddit/screenshot/${p.screenshot_path.replace(/^.*post_screenshots\//, 'post_screenshots/')}`
+                    ? `/telegram/screenshot/${p.screenshot_path.replace(/^.*post_screenshots\//, 'post_screenshots/')}`
                     : null;
                 return `
         <div class="post-card" onclick="window.open('${escapeHtml(p.post_url)}','_blank')">

@@ -96,8 +96,13 @@ pip install -q \
     flask \
     seleniumbase \
     Pillow \
-    numpy
-echo -e "   ${GREEN}Flask, SeleniumBase, Pillow, NumPy installed${RESET}"
+    numpy \
+    reportlab \
+    matplotlib \
+    telethon \
+    beautifulsoup4 \
+    requests
+echo -e "   ${GREEN}Flask, SeleniumBase, Pillow, NumPy, reportlab, matplotlib, telethon, bs4 installed${RESET}"
 echo ""
 
 
@@ -109,9 +114,16 @@ echo ""
 
 echo "Creating required directories..."
 mkdir -p app/face_data
+mkdir -p app/face_data_ig
+mkdir -p app/face_data_threads
+mkdir -p app/face_data_tg
 mkdir -p app/post_screenshots
-echo -e "   ${GREEN}app/face_data/ created${RESET}"
+mkdir -p app/reports
+mkdir -p app/telegram_media
+echo -e "   ${GREEN}app/face_data*/ created${RESET}"
 echo -e "   ${GREEN}app/post_screenshots/ created${RESET}"
+echo -e "   ${GREEN}app/reports/ created${RESET}"
+echo -e "   ${GREEN}app/telegram_media/ created${RESET}"
 echo ""
 
 echo "Patching face_recognition_models for Python 3.12 compatibility..."

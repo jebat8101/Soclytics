@@ -1,0 +1,15 @@
+[
+  {
+    "post_url": "https://t.me/example_channel/3",
+    "date": "2026-08-03",
+    "screenshot_path": "post_screenshots/telegram_example_3.txt",
+    "comments": [
+      {
+        "name": "Carol",
+        "profile_url": "https://t.me/carol",
+        "comment_text": "Following",
+        "interaction_type": "comment"
+      }
+    ]
+  }
+]

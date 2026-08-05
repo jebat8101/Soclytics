@@ -16,15 +16,24 @@ services:
       - ./app/socmint_ig.db:/app/socmint_ig.db
       - ./app/socmint_reddit.db:/app/socmint_reddit.db
       - ./app/socmint_threads.db:/app/socmint_threads.db
+      - ./app/socmint_tg.db:/app/socmint_tg.db
       - ./app/face_data:/app/face_data
       - ./app/face_data_ig:/app/face_data_ig
       - ./app/face_data_threads:/app/face_data_threads
+      - ./app/face_data_tg:/app/face_data_tg
       - ./app/post_screenshots:/app/post_screenshots
+      - ./app/telegram_media:/app/telegram_media
+      - ./app/reports:/app/reports
+      - ./app/telegram_config.json:/app/telegram_config.json
+      - ${TG_SESSION_FILE:-./app/telegram.session}:/app/telegram.session
       - ./app/icons:/app/icons
     environment:
       - DISPLAY=:99
       - PORT=5000
       - PYTHONUNBUFFERED=1
+      - TG_API_ID=${TG_API_ID:-}
+      - TG_API_HASH=${TG_API_HASH:-}
+      - TG_SESSION=${TG_SESSION:-/app/telegram}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:

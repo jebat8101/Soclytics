@@ -1,0 +1,16 @@
+[
+  {
+    "reel_url": "https://t.me/example_channel/2",
+    "date": "2026-08-02",
+    "image_src": "",
+    "caption": "Video update",
+    "comments": [
+      {
+        "name": "Alice",
+        "profile_url": "https://t.me/alice",
+        "comment_text": "[reaction]",
+        "interaction_type": "reaction"
+      }
+    ]
+  }
+]

@@ -11,6 +11,7 @@ app/socmint_fb.db
 app/socmint_ig.db
 app/socmint_reddit.db
 app/socmint_threads.db
+app/socmint_tg.db
 app/socmint_*.db
 
 # ── Data gathering JSON output ────────────────────────────────────────────────
@@ -25,14 +26,24 @@ app/reddit_about.json
 app/reddit_submissions.json
 app/threads_about.json
 app/threads_posts.json
+app/telegram_about.json
+app/telegram_photos.json
+app/telegram_reels.json
+app/telegram_posts.json
+app/telegram_config.json
+app/telegram.session
+app/*.session
 
 # ── Runtime directories ───────────────────────────────────────────────────────
 app/face_data/
 app/face_data_ig/
 app/face_data_threads/
+app/face_data_tg/
 app/face_data_*/
 app/post_screenshots
 app/downloaded_files
+app/reports/
+app/telegram_media/
 
 # ── Python cache ──────────────────────────────────────────────────────────────
 __pycache__/

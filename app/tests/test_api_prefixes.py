@@ -16,6 +16,10 @@ THREADS_TEMPLATES = [
     os.path.join(TEMPLATES_DIR, 'threads', 'index.html'),
     os.path.join(TEMPLATES_DIR, 'threads', 'analysis.html'),
 ]
+TELEGRAM_TEMPLATES = [
+    os.path.join(TEMPLATES_DIR, 'telegram', 'index.html'),
+    os.path.join(TEMPLATES_DIR, 'telegram', 'analysis.html'),
+]
 
 # Bare fetch to unprefixed /api/ — must never appear in platform templates
 BARE_FETCH_RE = re.compile(r"""fetch\s*\(\s*['`']/api/""")
@@ -53,4 +57,14 @@ def test_threads_templates_use_platform_api_prefix():
         assert '/threads/api/' in src, f'{path} missing /threads/api/ paths'
         assert not BARE_FETCH_RE.search(src), (
             f'{path} contains bare fetch(\'/api/ — use /threads/api/ instead'
+        )
+
+
+def test_telegram_templates_use_platform_api_prefix():
+    for path in TELEGRAM_TEMPLATES:
+        src = _read(path)
+        assert os.path.isfile(path), f'missing template: {path}'
+        assert '/telegram/api/' in src, f'{path} missing /telegram/api/ paths'
+        assert not BARE_FETCH_RE.search(src), (
+            f'{path} contains bare fetch(\'/api/ — use /telegram/api/ instead'
         )

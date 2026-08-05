@@ -26,6 +26,7 @@ from platforms.instagram.reels_sb import main as scrape_reels
 from platforms.instagram.posts_sb import main as scrape_posts
 
 from core.pipeline import make_pipeline_state, reset_pipeline, set_step, finish_pipeline
+from core.report_routes import register_report_routes
 from core.scoring import (
     get_profile_id,
     get_all_interactors,
@@ -49,6 +50,7 @@ os.makedirs(FACE_DIR, exist_ok=True)
 pipeline_state = make_pipeline_state(PIPELINE_STEPS)
 
 instagram_bp = Blueprint('instagram', __name__, url_prefix='/instagram')
+register_report_routes(instagram_bp, DB_FILE, 'instagram')
 
 
 @instagram_bp.route('/')

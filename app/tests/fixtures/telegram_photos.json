@@ -1,0 +1,22 @@
+[
+  {
+    "photo_url": "https://t.me/example_channel/1",
+    "date": "2026-08-01",
+    "image_src": "",
+    "caption": "Hello from the channel",
+    "comments": [
+      {
+        "name": "Alice",
+        "profile_url": "https://t.me/alice",
+        "comment_text": "Nice post",
+        "interaction_type": "comment"
+      },
+      {
+        "name": "Bob",
+        "profile_url": "https://t.me/bob",
+        "comment_text": "Agree",
+        "interaction_type": "comment"
+      }
+    ]
+  }
+]

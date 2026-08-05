@@ -1,0 +1,19 @@
+{
+  "profile_url": "https://t.me/example_channel",
+  "owner_name": "Example Channel",
+  "is_locked": 0,
+  "platform": "telegram",
+  "sections": {
+    "directory_names": [
+      {"field_type": "name", "label": "Title", "value": "Example Channel", "sub_label": null}
+    ],
+    "directory_personal_details": [
+      {"field_type": "username", "label": "Username", "value": "@example_channel", "sub_label": null},
+      {"field_type": "type", "label": "Type", "value": "channel", "sub_label": null}
+    ],
+    "overview": [
+      {"field_type": "link", "label": "Profile Link", "value": "https://t.me/example_channel", "sub_label": null},
+      {"field_type": "mode", "label": "Collection Mode", "value": "fixture", "sub_label": null}
+    ]
+  }
+}

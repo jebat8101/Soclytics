@@ -24,7 +24,8 @@ RUN python3.12 -m venv /app/venv
 ENV PATH="/app/venv/bin:$PATH"
 
 RUN pip install --upgrade pip \
-    && pip install flask seleniumbase Pillow numpy pytest \
+    && pip install flask seleniumbase Pillow numpy pytest reportlab matplotlib \
+    && pip install telethon beautifulsoup4 requests \
     && pip install dlib \
     && pip install face_recognition \
     && pip install git+https://github.com/ageitgey/face_recognition_models
@@ -48,7 +49,8 @@ def cnn_face_detector_model_location():
 PYEOF
 
 WORKDIR /app
-RUN mkdir -p /app/face_data /app/face_data_ig /app/face_data_threads /app/post_screenshots /app/icons
+RUN mkdir -p /app/face_data /app/face_data_ig /app/face_data_threads /app/face_data_tg \
+    /app/post_screenshots /app/telegram_media /app/reports /app/icons
 COPY app/ /app/
 ENV PYTHONPATH=/app PYTHONUNBUFFERED=1 DISPLAY=:99 PORT=5000
 COPY docker-entrypoint.sh /docker-entrypoint.sh

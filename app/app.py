@@ -14,6 +14,9 @@ from platforms.reddit.constants import DB_FILE as REDDIT_DB_FILE
 from platforms.threads.blueprint import threads_bp
 from platforms.threads.db import init_db as init_threads_db
 from platforms.threads.constants import DB_FILE as THREADS_DB_FILE
+from platforms.telegram.blueprint import telegram_bp
+from platforms.telegram.db import init_db as init_tg_db
+from platforms.telegram.constants import DB_FILE as TG_DB_FILE
 
 
 def create_app():
@@ -22,6 +25,7 @@ def create_app():
     init_ig_db(IG_DB_FILE)
     init_reddit_db(REDDIT_DB_FILE)
     init_threads_db(THREADS_DB_FILE)
+    init_tg_db(TG_DB_FILE)
     application = Flask(
         __name__,
         template_folder=os.path.join(BASE_DIR, 'templates'),
@@ -32,6 +36,7 @@ def create_app():
     application.register_blueprint(instagram_bp)
     application.register_blueprint(reddit_bp)
     application.register_blueprint(threads_bp)
+    application.register_blueprint(telegram_bp)
 
     @application.route('/')
     def root():
