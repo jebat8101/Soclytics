@@ -914,6 +914,209 @@
             position: relative;
         }
 
+        .metrics-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .metrics-chart {
+            height: 220px;
+            position: relative;
+        }
+
+        .metrics-chart.tall {
+            height: 260px;
+        }
+
+        .metrics-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .metrics-select,
+        .metrics-input {
+            background: var(--bg-elev);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-family: var(--font-sans);
+            font-weight: 700;
+            font-size: 12px;
+            letter-spacing: 0.4px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            outline: none;
+        }
+
+        .metrics-input {
+            min-width: 180px;
+            flex: 1;
+        }
+
+        .metrics-input:focus,
+        .metrics-select:focus {
+            border-color: var(--accent);
+        }
+
+        .metrics-btn {
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            font-family: var(--font-sans);
+            font-weight: 900;
+            font-size: 11px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            padding: 9px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .metrics-btn:hover {
+            background: var(--accent-bright);
+        }
+
+        .metrics-stat-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .metrics-stat {
+            background: var(--bg-elev);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .metrics-stat .v {
+            font-size: 22px;
+            font-weight: 900;
+            color: var(--accent-bright);
+        }
+
+        .metrics-stat .k {
+            margin-top: 4px;
+            font-size: 10px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-faint);
+            font-weight: 700;
+        }
+
+        .word-cloud {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 12px;
+            align-items: center;
+            justify-content: center;
+            min-height: 140px;
+            padding: 12px;
+            background: var(--bg-elev);
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            margin-bottom: 14px;
+        }
+
+        .word-cloud-visual {
+            width: 100%;
+            margin-bottom: 10px;
+            background: #fff;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            min-height: 160px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .word-cloud-visual img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .word-cloud-label {
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-faint);
+            margin-bottom: 8px;
+        }
+
+        .word-cloud .wc-token {
+            font-weight: 900;
+            line-height: 1.1;
+            color: var(--text-dim);
+            transition: color 0.15s ease, transform 0.15s ease;
+            cursor: default;
+        }
+
+        .word-cloud .wc-token:hover {
+            color: var(--accent-bright);
+            transform: scale(1.06);
+        }
+
+        .word-search-result {
+            margin-top: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-dim);
+        }
+
+        .word-search-result strong {
+            color: var(--accent-bright);
+        }
+
+        .word-samples {
+            margin-top: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+
+        .word-sample {
+            background: var(--bg-elev);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 12px;
+        }
+
+        .word-sample .who {
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 4px;
+        }
+
+        .word-sample .msg {
+            font-size: 13px;
+            color: var(--text-dim);
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        @media (max-width: 900px) {
+            .metrics-split {
+                grid-template-columns: 1fr;
+            }
+
+            .metrics-stat-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
         /* ===== TOP 7 LIST ===== */
         .top7-list {
             display: flex;
@@ -1939,6 +2142,60 @@
             </div>
         </div>
 
+        <!-- CONVO-METRICS STYLE MODULES -->
+        <div class="card span-12">
+            <div class="card-head">
+                <div class="card-title">Activity Timeline</div>
+                <div class="card-meta" id="activityMeta">MESSAGES · DAY / WEEKDAY / HOUR</div>
+            </div>
+            <div class="metrics-stat-row">
+                <div class="metrics-stat"><div class="v" id="actTotalMsg">–</div><div class="k">Messages</div></div>
+                <div class="metrics-stat"><div class="v" id="actParticipants">–</div><div class="k">Participants</div></div>
+                <div class="metrics-stat"><div class="v" id="actDays">–</div><div class="k">Active Days</div></div>
+            </div>
+            <div class="metrics-chart tall"><canvas id="activityDayChart"></canvas></div>
+            <div class="metrics-split" style="margin-top:14px">
+                <div class="metrics-chart"><canvas id="activityWeekdayChart"></canvas></div>
+                <div class="metrics-chart"><canvas id="activityHourChart"></canvas></div>
+            </div>
+        </div>
+
+        <div class="card span-6">
+            <div class="card-head">
+                <div class="card-title">Word Analysis</div>
+                <div class="metrics-toolbar">
+                    <div class="card-meta" id="wordMeta">TOP WORDS</div>
+                    <select class="metrics-select" id="wordSenderSelect"></select>
+                </div>
+            </div>
+            <div class="word-cloud-label">Visual Word Cloud</div>
+            <div class="word-cloud-visual" id="wordCloudVisual">
+                <div class="loading">LOADING</div>
+            </div>
+            <div class="word-cloud-label">Top Words</div>
+            <div class="word-cloud" id="wordCloud"><div class="loading">LOADING</div></div>
+            <div class="metrics-chart tall"><canvas id="wordBarChart"></canvas></div>
+        </div>
+
+        <div class="card span-6">
+            <div class="card-head">
+                <div class="card-title">Word Searcher</div>
+                <div class="card-meta">WHO SAID IT</div>
+            </div>
+            <div class="metrics-toolbar">
+                <input class="metrics-input" id="wordSearchInput" type="text"
+                    placeholder="Enter a word (e.g. malaysia, anwar, sorry)"
+                    autocomplete="off">
+                <button class="metrics-btn" id="wordSearchBtn" type="button">Search</button>
+            </div>
+            <div class="word-search-result" id="wordSearchResult">Search the corpus for exact word matches.</div>
+            <div class="metrics-split" style="margin-top:14px">
+                <div class="metrics-chart"><canvas id="wordWhoChart"></canvas></div>
+                <div class="metrics-chart"><canvas id="wordWhenChart"></canvas></div>
+            </div>
+            <div class="word-samples" id="wordSamples"></div>
+        </div>
+
         <div class="card span-12">
             <div class="card-head">
                 <div class="card-title">Network Graph · Frequency-Weighted</div>
@@ -2207,7 +2464,7 @@
             document.getElementById('caseId').textContent = String(PROFILE).padStart(4, '0');
 
             const [summary, interactors, top7, graph, cocomment, timeline, counts, faces,
-                photoPosts, textPosts, reelPosts] = await Promise.all([
+                photoPosts, textPosts, reelPosts, activity] = await Promise.all([
                     api(`/telegram/api/profile-summary/${PROFILE}`),
                     api(`/telegram/api/all-interactors/${PROFILE}`),
                     api(`/telegram/api/top7/${PROFILE}`),
@@ -2219,6 +2476,7 @@
                     api(`/telegram/api/photo-posts/${PROFILE}`),
                     api(`/telegram/api/text-posts/${PROFILE}`),
                     api(`/telegram/api/reel-posts/${PROFILE}`),
+                    api(`/telegram/api/activity-metrics/${PROFILE}`),
                 ]);
 
             if (summary.ok && summary.data) {
@@ -2253,6 +2511,9 @@
             if (photoPosts.ok) renderPhotoGallery(photoPosts.data || []);
             if (textPosts.ok) renderTextGallery(textPosts.data || []);
             if (reelPosts.ok) renderReelTable(reelPosts.data || []);
+            if (activity.ok) renderActivityMetrics(activity.data || {});
+            await loadWordStats('All');
+            bindWordMetricsUI();
         }
 
         // ============================================================
@@ -2397,6 +2658,291 @@
                         }
                     }
                 }
+            });
+        }
+
+        // ============================================================
+        //  ACTIVITY / WORD ANALYSIS / WORD SEARCHER (ConvoMetrics)
+        // ============================================================
+        let activityDayInstance = null;
+        let activityWeekdayInstance = null;
+        let activityHourInstance = null;
+        let wordBarInstance = null;
+        let wordWhoInstance = null;
+        let wordWhenInstance = null;
+        let wordMetricsBound = false;
+
+        function chartDefaults() {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: cssVar('--text-dim'), font: { family: 'Google Sans', weight: 700, size: 11 } }
+                    },
+                    tooltip: {
+                        bodyFont: { family: 'Google Sans', weight: 700 },
+                        titleFont: { family: 'Google Sans', weight: 700 }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: cssVar('--grid-line') },
+                        ticks: { color: cssVar('--text-faint'), font: { family: 'Google Sans', size: 10, weight: 700 }, maxRotation: 45 }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: cssVar('--grid-line') },
+                        ticks: { color: cssVar('--text-faint'), font: { family: 'Google Sans', size: 11, weight: 700 } }
+                    }
+                }
+            };
+        }
+
+        function renderActivityMetrics(data) {
+            const byDate = data.by_date || [];
+            const byWeekday = data.by_weekday || [];
+            const byHour = data.by_hour || [];
+            document.getElementById('actTotalMsg').textContent = fmt(data.total_messages || 0);
+            document.getElementById('actParticipants').textContent = fmt(data.participants || 0);
+            document.getElementById('actDays').textContent = fmt(byDate.length);
+            const hourNote = data.has_hour_data ? 'HOUR OK' : 'HOUR N/A';
+            document.getElementById('activityMeta').textContent =
+                `${fmt(data.total_messages || 0)} MSGS · ${hourNote}`;
+
+            if (activityDayInstance) activityDayInstance.destroy();
+            activityDayInstance = new Chart(document.getElementById('activityDayChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: byDate.map(d => d.date),
+                    datasets: [{
+                        label: 'Messages / Day',
+                        data: byDate.map(d => d.messages || 0),
+                        borderColor: cssVar('--danger'),
+                        backgroundColor: 'rgba(255,107,107,0.12)',
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 3,
+                        pointBackgroundColor: cssVar('--danger'),
+                    }]
+                },
+                options: chartDefaults()
+            });
+
+            if (activityWeekdayInstance) activityWeekdayInstance.destroy();
+            activityWeekdayInstance = new Chart(document.getElementById('activityWeekdayChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: byWeekday.map(d => (d.day || '').slice(0, 3)),
+                    datasets: [{
+                        label: 'Weekday',
+                        data: byWeekday.map(d => d.messages || 0),
+                        backgroundColor: cssVar('--info'),
+                        borderRadius: 2,
+                    }]
+                },
+                options: { ...chartDefaults(), plugins: { ...chartDefaults().plugins, legend: { display: false } } }
+            });
+
+            if (activityHourInstance) activityHourInstance.destroy();
+            activityHourInstance = new Chart(document.getElementById('activityHourChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: byHour.map(d => String(d.hour).padStart(2, '0')),
+                    datasets: [{
+                        label: 'Hour',
+                        data: byHour.map(d => d.messages || 0),
+                        backgroundColor: cssVar('--freq-pink'),
+                        borderRadius: 2,
+                    }]
+                },
+                options: { ...chartDefaults(), plugins: { ...chartDefaults().plugins, legend: { display: false } } }
+            });
+        }
+
+        function renderWordCloud(words) {
+            const el = document.getElementById('wordCloud');
+            if (!words || !words.length) {
+                el.innerHTML = '<div class="empty">NO TEXTUAL DATA</div>';
+                return;
+            }
+            const max = words[0].count || 1;
+            const min = words[words.length - 1].count || 1;
+            el.innerHTML = words.slice(0, 50).map(w => {
+                const t = max === min ? 0.5 : (w.count - min) / (max - min);
+                const size = 12 + Math.round(t * 26);
+                const weight = t > 0.65 ? 900 : 700;
+                const color = t > 0.7 ? 'var(--accent-bright)' : (t > 0.4 ? 'var(--text)' : 'var(--text-dim)');
+                return `<span class="wc-token" style="font-size:${size}px;font-weight:${weight};color:${color}" title="${w.count}">${escapeHtml(w.word)}</span>`;
+            }).join('');
+        }
+
+        function renderVisualWordCloud(sender) {
+            const wrap = document.getElementById('wordCloudVisual');
+            if (!wrap) return;
+            const q = encodeURIComponent(sender || 'All');
+            const url = `/telegram/api/word-cloud/${PROFILE}?sender=${q}&_=${Date.now()}`;
+            wrap.innerHTML = `<img src="${url}" alt="Visual Word Cloud" onerror="this.parentNode.innerHTML='<div class=empty>WORD CLOUD UNAVAILABLE</div>'">`;
+        }
+
+        function renderWordBar(topWords) {
+            if (wordBarInstance) wordBarInstance.destroy();
+            const rows = (topWords || []).slice(0, 15).reverse();
+            wordBarInstance = new Chart(document.getElementById('wordBarChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: rows.map(r => r.word),
+                    datasets: [{
+                        label: 'Count',
+                        data: rows.map(r => r.count),
+                        backgroundColor: cssVar('--cyan'),
+                        borderRadius: 2,
+                    }]
+                },
+                options: {
+                    ...chartDefaults(),
+                    indexAxis: 'y',
+                    plugins: { ...chartDefaults().plugins, legend: { display: false } }
+                }
+            });
+        }
+
+        async function loadWordStats(sender) {
+            const sel = document.getElementById('wordSenderSelect');
+            const q = encodeURIComponent(sender || 'All');
+            const res = await api(`/telegram/api/word-stats/${PROFILE}?sender=${q}`);
+            if (!res.ok || !res.data) {
+                document.getElementById('wordCloud').innerHTML = '<div class="empty">WORD STATS UNAVAILABLE</div>';
+                return;
+            }
+            const data = res.data;
+            const senders = data.senders || ['All'];
+            const current = data.sender || 'All';
+            sel.innerHTML = senders.map(s =>
+                `<option value="${escapeHtml(s)}"${s === current ? ' selected' : ''}>${escapeHtml(s)}</option>`
+            ).join('');
+            document.getElementById('wordMeta').textContent =
+                `${fmt(data.total_words || 0)} WORDS · ${fmt(data.unique_words || 0)} UNIQUE`;
+            renderVisualWordCloud(current);
+            renderWordCloud(data.cloud_words || data.top_words || []);
+            renderWordBar(data.top_words || []);
+        }
+
+        function renderWordSearch(data) {
+            const result = document.getElementById('wordSearchResult');
+            const samples = document.getElementById('wordSamples');
+            if (!data || !data.term) {
+                result.textContent = 'Search the corpus for exact word matches.';
+                samples.innerHTML = '';
+                return;
+            }
+            if (!data.total) {
+                result.innerHTML = `The word <strong>'${escapeHtml(data.term)}'</strong> was not found.`;
+                samples.innerHTML = '';
+            } else {
+                result.innerHTML = `The word <strong>'${escapeHtml(data.term)}'</strong> was used <strong>${fmt(data.total)}</strong> times.`;
+                samples.innerHTML = (data.samples || []).map(s => `
+                    <div class="word-sample">
+                        <div class="who">${escapeHtml(s.sender || 'Unknown')}${s.date ? ' · ' + escapeHtml(s.date) : ''}</div>
+                        <div class="msg">${escapeHtml(s.message || '')}</div>
+                    </div>
+                `).join('');
+            }
+
+            const who = (data.by_sender || []).slice(0, 12);
+            if (wordWhoInstance) wordWhoInstance.destroy();
+            wordWhoInstance = new Chart(document.getElementById('wordWhoChart').getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: who.map(w => w.sender),
+                    datasets: [{
+                        data: who.map(w => w.count),
+                        backgroundColor: [
+                            cssVar('--freq-orange'), cssVar('--freq-pink'), cssVar('--accent'),
+                            cssVar('--cyan'), cssVar('--freq-yellow'), cssVar('--freq-green'),
+                            cssVar('--info'), cssVar('--danger')
+                        ],
+                        borderColor: cssVar('--bg-card'),
+                        borderWidth: 2,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '55%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: cssVar('--text-dim'), font: { family: 'Google Sans', weight: 700, size: 10 }, boxWidth: 10 }
+                        },
+                        title: {
+                            display: true,
+                            text: data.total ? `Who said '${data.term}'?` : 'Who',
+                            color: cssVar('--text-dim'),
+                            font: { family: 'Google Sans', weight: 700, size: 12 }
+                        }
+                    }
+                }
+            });
+
+            const when = data.by_date || [];
+            if (wordWhenInstance) wordWhenInstance.destroy();
+            wordWhenInstance = new Chart(document.getElementById('wordWhenChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: when.map(d => d.date),
+                    datasets: [{
+                        label: 'Uses',
+                        data: when.map(d => d.count),
+                        borderColor: cssVar('--accent-bright'),
+                        backgroundColor: 'rgba(212,162,76,0.12)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 3,
+                        pointBackgroundColor: cssVar('--accent-bright'),
+                    }]
+                },
+                options: {
+                    ...chartDefaults(),
+                    plugins: {
+                        ...chartDefaults().plugins,
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: data.total ? `When was '${data.term}' used?` : 'When',
+                            color: cssVar('--text-dim'),
+                            font: { family: 'Google Sans', weight: 700, size: 12 }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function runWordSearch() {
+            const input = document.getElementById('wordSearchInput');
+            const term = (input.value || '').trim();
+            if (!term) {
+                renderWordSearch(null);
+                return;
+            }
+            document.getElementById('wordSearchResult').textContent = 'Searching…';
+            const res = await api(`/telegram/api/word-search/${PROFILE}?q=${encodeURIComponent(term)}`);
+            if (!res.ok) {
+                document.getElementById('wordSearchResult').textContent = res.error || 'Search failed';
+                return;
+            }
+            renderWordSearch(res.data);
+        }
+
+        function bindWordMetricsUI() {
+            if (wordMetricsBound) return;
+            wordMetricsBound = true;
+            document.getElementById('wordSenderSelect').addEventListener('change', (e) => {
+                loadWordStats(e.target.value || 'All');
+            });
+            document.getElementById('wordSearchBtn').addEventListener('click', runWordSearch);
+            document.getElementById('wordSearchInput').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') runWordSearch();
             });
         }
 

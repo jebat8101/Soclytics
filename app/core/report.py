@@ -2,6 +2,7 @@
 BIRDY-EDWARDS LITE v2 — Full PDF / JSON intelligence report (no LLM).
 Mirrors analysis UI coverage: about, posts, interactors, Top-7,
 co-comment network, timeline, comments sample, face clusters.
+Telegram also includes ConvoMetrics-style activity / word / search sections.
 """
 from __future__ import annotations
 
@@ -72,6 +73,11 @@ SECTION_MEANINGS = {
     "scraped": "Timestamp of the collection run that produced the data in this report.",
     "generated": "UTC time this PDF/DOCX file was written — may be later than the scrape.",
     "locked": "Whether the source surface was restricted / private at collection time.",
+    "00": (
+        "Formal executive briefing: overview and objectives, collection outcomes, "
+        "content and network findings, limitations, and recommended follow-up. "
+        "Prose is composed from local metrics only — no LLM narrative."
+    ),
     "01": (
         "High-level snapshot of everything collected for this subject. Counts match the "
         "analysis console: posts by type, unique interactors, total interactions, face "
@@ -135,11 +141,23 @@ SECTION_MEANINGS = {
         "photo / reel / text. Spikes mark campaigns, news events or coordinated bursts."
     ),
     "08": (
+        "Message-level activity from captions, comments and day-thread transcripts "
+        "(ConvoMetrics-style). Charts show volume by calendar day, weekday and hour."
+    ),
+    "09": (
+        "Lexical fingerprint of the collected corpus after stopword filtering. Includes a "
+        "visual word cloud plus ranked top-word tables to surface themes, slogans and jargon."
+    ),
+    "10": (
+        "Who said the highest-frequency content words, with sample excerpts. "
+        "Mirrors the analysis Word Searcher for the top corpus terms."
+    ),
+    "11": (
         "Faces automatically grouped across collected images. Each cluster is a likely "
         "unique person; appearance_count is how often that face was seen. Labels may be "
         "auto-assigned or left as Person N until an analyst names them."
     ),
-    "09": (
+    "12": (
         "Legal and operational limits of this report: open-source / session-authenticated "
         "data only, point-in-time, not legal advice, authorized use required."
     ),
@@ -625,6 +643,136 @@ def chart_cocomment_force(coco: dict, threshold: int = 1):
     return _chart_buf(fig)
 
 
+def chart_activity_day(activity: dict):
+    rows = activity.get("by_date") or []
+    if not rows:
+        return None
+    fig, ax = plt.subplots(figsize=(8.4, 3.2))
+    fig.patch.set_facecolor("white")
+    xs = [r.get("date") for r in rows]
+    ys = [int(r.get("messages") or 0) for r in rows]
+    ax.plot(xs, ys, color="#c0392b", linewidth=2.2, marker="o", markersize=3.5)
+    ax.fill_between(range(len(ys)), ys, color="#c0392b", alpha=0.12)
+    ax.set_xticks(range(len(xs)))
+    ax.set_xticklabels(xs, rotation=55, ha="right", fontsize=7)
+    ax.set_ylabel("Messages", fontsize=9)
+    ax.set_title("Messages per Day", fontsize=12, fontweight="bold", color="#1a1a2e")
+    ax.grid(axis="y", linestyle="--", alpha=0.35)
+    plt.tight_layout()
+    return _chart_buf(fig)
+
+
+def chart_activity_weekday_hour(activity: dict):
+    week = activity.get("by_weekday") or []
+    hours = activity.get("by_hour") or []
+    if not week and not hours:
+        return None
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8.4, 3.0))
+    fig.patch.set_facecolor("white")
+    if week:
+        ax1.bar(
+            [str(r.get("day") or "")[:3] for r in week],
+            [int(r.get("messages") or 0) for r in week],
+            color="#2a6a8a",
+        )
+        ax1.set_title("By Weekday", fontsize=11, fontweight="bold")
+        ax1.tick_params(axis="x", labelsize=8)
+        ax1.grid(axis="y", linestyle="--", alpha=0.35)
+    if hours:
+        ax2.bar(
+            [int(r.get("hour") or 0) for r in hours],
+            [int(r.get("messages") or 0) for r in hours],
+            color="#ff4d88",
+            width=0.85,
+        )
+        ax2.set_title("By Hour", fontsize=11, fontweight="bold")
+        ax2.set_xticks(range(0, 24, 2))
+        ax2.tick_params(axis="x", labelsize=8)
+        ax2.grid(axis="y", linestyle="--", alpha=0.35)
+        if not activity.get("has_hour_data"):
+            ax2.text(
+                0.5, 0.5, "No hour timestamps in corpus",
+                transform=ax2.transAxes, ha="center", va="center",
+                fontsize=9, color="#888",
+            )
+    plt.tight_layout()
+    return _chart_buf(fig)
+
+
+def chart_top_words(word_stats: dict):
+    words = list(reversed((word_stats.get("top_words") or [])[:15]))
+    if not words:
+        return None
+    fig, ax = plt.subplots(figsize=(8.0, 4.6))
+    fig.patch.set_facecolor("white")
+    labels = [w.get("word") for w in words]
+    vals = [int(w.get("count") or 0) for w in words]
+    ax.barh(labels, vals, color="#2a8a96")
+    ax.set_title("Top Words (stopwords excluded)", fontsize=12, fontweight="bold", color="#1a1a2e")
+    ax.set_xlabel("Count", fontsize=9)
+    ax.tick_params(axis="y", labelsize=8)
+    ax.grid(axis="x", linestyle="--", alpha=0.35)
+    plt.tight_layout()
+    return _chart_buf(fig)
+
+
+def chart_word_cloud(word_stats: dict):
+    """ConvoMetrics-style visual word cloud for the PDF Word Analysis section."""
+    import io
+    rows = word_stats.get("cloud_words") or word_stats.get("top_words") or []
+    freqs = {str(w.get("word")): int(w.get("count") or 0) for w in rows if w.get("word")}
+    if not freqs:
+        return None
+    try:
+        from platforms.telegram.text_metrics import render_word_cloud_png
+        png = render_word_cloud_png(freqs, width=1200, height=520)
+        if not png:
+            return None
+        buf = io.BytesIO(png)
+        buf.seek(0)
+        return buf
+    except Exception:
+        # Fallback: draw a simple frequency scatter-style cloud with matplotlib only
+        fig, ax = plt.subplots(figsize=(8.4, 3.8))
+        fig.patch.set_facecolor("white")
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.axis("off")
+        ax.set_title("Visual Word Cloud", fontsize=12, fontweight="bold", color="#1a1a2e", pad=8)
+        items = sorted(freqs.items(), key=lambda x: x[1], reverse=True)[:40]
+        max_c = items[0][1] if items else 1
+        rng = np.random.default_rng(7)
+        for i, (word, count) in enumerate(items):
+            size = 8 + 22 * (count / max_c)
+            ax.text(
+                rng.uniform(0.05, 0.95), rng.uniform(0.08, 0.92), word,
+                fontsize=size, ha="center", va="center",
+                color=plt.cm.viridis(0.2 + 0.7 * (count / max_c)),
+                fontweight="bold", alpha=0.9,
+            )
+        plt.tight_layout()
+        return _chart_buf(fig)
+
+
+def chart_word_who(term: str, by_sender: list):
+    rows = (by_sender or [])[:8]
+    if not rows:
+        return None
+    fig, ax = plt.subplots(figsize=(4.2, 3.4))
+    fig.patch.set_facecolor("white")
+    labels = [_clip(r.get("sender"), 18) for r in rows]
+    vals = [int(r.get("count") or 0) for r in rows]
+    colors_pie = ["#ff7a29", "#ff4d88", "#d4a24c", "#5fd4e0", "#f4c430", "#3dd68c", "#6ab6d4", "#c0392b"]
+    ax.pie(
+        vals, labels=labels, autopct=lambda p: f"{p:.0f}%" if p >= 8 else "",
+        colors=colors_pie[: len(vals)], startangle=90,
+        textprops={"fontsize": 7},
+    )
+    ax.set_title(f"Who said '{term}'?", fontsize=10, fontweight="bold")
+    plt.tight_layout()
+    return _chart_buf(fig)
+
+
 def _pdf_image(buf, width_mm: float = 155):
     if buf is None:
         return None
@@ -654,7 +802,7 @@ def _pdf_image(buf, width_mm: float = 155):
 
 # ── builders ──────────────────────────────────────────────────────────────────
 
-def build_cover(profile: dict, S) -> list:
+def build_cover(profile: dict, S, platform: str = "facebook") -> list:
     story = [Spacer(1, 24 * mm)]
     if os.path.isfile(LOGO_PATH):
         try:
@@ -720,13 +868,369 @@ def build_cover(profile: dict, S) -> list:
     gt.setStyle(_table_style())
     story.append(gt)
     story.append(Spacer(1, 6 * mm))
+    if platform == "telegram":
+        contents = (
+            "Contents: Executive Summary · Profile · Co-Comment Matrix · Force Graph · "
+            "All Interactors · Top-7 · Full Post Inventory · Comment Samples · Timeline · "
+            "Activity Timeline · Word Analysis · Word Searcher · Face Clusters"
+        )
+    else:
+        contents = (
+            "Contents: Profile · Co-Comment Matrix · Force Graph · All Interactors · Top-7 · "
+            "Full Post Inventory · Comment Samples · Timeline · Face Clusters"
+        )
+    story.append(Paragraph(contents, S["cover_sub"]))
+    story.append(PageBreak())
+    return story
+
+
+def compose_executive_summary(data: dict) -> dict:
+    """
+    Formal executive briefing for Telegram content reports (no LLM).
+
+    Structure:
+      1. Overview & Objectives
+      2. Collection Outcomes
+      3. Content & Network Findings
+      4. Limitations & Gaps
+      5. Recommended Follow-up
+    """
+    profile = data.get("profile") or {}
+    counts = data.get("counts") or {}
+    posts = data.get("posts") or {}
+    faces = data.get("faces") or []
+    interactors = data.get("interactors") or []
+    top7 = data.get("top7") or []
+    coco = data.get("coco") or {}
+    activity = data.get("activity") or {}
+    word_stats = data.get("word_stats") or {}
+    meta = data.get("meta") or {}
+
+    photo_n = len(posts.get("photos") or [])
+    reel_n = len(posts.get("reels") or [])
+    text_n = len(posts.get("texts") or [])
+    total_posts = photo_n + reel_n + text_n
+    ix = counts.get("interactions") or {}
+    total_ix = int(ix.get("total") or 0)
+
+    subject = {
+        "name": profile.get("owner_name") or "Unknown Subject",
+        "url": profile.get("profile_url") or "",
+        "case_id": profile.get("id"),
+        "scraped_at": profile.get("scraped_at") or "—",
+        "locked": bool(profile.get("is_locked")),
+    }
+
+    collection = {
+        "posts_total": total_posts,
+        "photos": photo_n,
+        "reels": reel_n,
+        "texts": text_n,
+        "interactors": len(interactors),
+        "interactions": total_ix,
+        "face_clusters": len(faces),
+        "messages": int(activity.get("total_messages") or 0),
+        "participants": int(activity.get("participants") or 0),
+        "active_days": len(activity.get("by_date") or []),
+        "words": int(word_stats.get("total_words") or 0),
+        "unique_words": int(word_stats.get("unique_words") or 0),
+    }
+
+    name = subject["name"]
+    url = subject["url"] or "(URL unavailable)"
+    case_id = subject["case_id"]
+    scraped = subject["scraped_at"]
+    generated = (meta.get("generated_at") or "")[:19].replace("T", " ") or "this run"
+    lock_clause = (
+        " The source surface was locked or restricted at the time of collection."
+        if subject["locked"]
+        else ""
+    )
+
+    msg_n = collection["messages"]
+    top_words = word_stats.get("top_words") or []
+    by_date = activity.get("by_date") or []
+    top_senders = activity.get("top_senders") or []
+    edges = sorted(
+        coco.get("edges") or [],
+        key=lambda e: e.get("weight") or 0,
+        reverse=True,
+    )
+    nodes = {n["commentor_id"]: n for n in (coco.get("nodes") or [])}
+
+    # --- 1. Overview & Objectives ---
+    overview = (
+        f"This report presents the outcomes of a data collection and scraping initiative "
+        f"conducted against the Telegram subject \"{name}\" ({url}). The objective was to "
+        f"assemble a point-in-time SOCMINT corpus — posts, interactions, participant "
+        f"activity, and lexical signals — suitable for investigative review under case "
+        f"BE-{case_id}. Collection was recorded at {scraped}; this briefing was composed "
+        f"at {generated} UTC from locally stored metrics only (no remote LLM enrichment)."
+        f"{lock_clause}"
+    )
+
+    # --- 2. Collection Outcomes ---
+    outcomes = (
+        f"The initiative recovered {total_posts} post items "
+        f"({photo_n} photos, {reel_n} reels, {text_n} text), "
+        f"{len(interactors)} unique interactors, and {total_ix} interaction records. "
+        f"Face clustering produced {len(faces)} cluster(s)."
+    )
+    if msg_n:
+        outcomes += (
+            f" The derived message corpus contains {msg_n} messages from "
+            f"{collection['participants']} participant(s) across "
+            f"{collection['active_days']} active day(s), totalling "
+            f"{collection['words']} words ({collection['unique_words']} unique after "
+            f"stopword filtering)."
+        )
+    else:
+        outcomes += (
+            " A usable message corpus for activity and word analytics was not available "
+            "from the collected captions, comments, or day-thread transcripts."
+        )
+
+    # --- 3. Content & Network Findings ---
+    findings_parts: list[str] = []
+    if msg_n and by_date:
+        peak = max(by_date, key=lambda r: int(r.get("messages") or 0))
+        findings_parts.append(
+            f"Peak message volume occurred on {peak.get('date') or '—'} "
+            f"({int(peak.get('messages') or 0)} messages)."
+        )
+    if top_senders:
+        lead = ", ".join(
+            f"{s.get('sender') or '?'} ({int(s.get('messages') or 0)})"
+            for s in top_senders[:5]
+        )
+        findings_parts.append(f"Highest-volume participants were {lead}.")
+    if top_words:
+        themes = ", ".join(
+            f"{w.get('word')} ({int(w.get('count') or 0)})"
+            for w in top_words[:8]
+        )
+        findings_parts.append(
+            f"Dominant content terms in the filtered corpus were {themes}."
+        )
+    else:
+        findings_parts.append(
+            "No dominant content terms could be derived from the available text."
+        )
+
+    if top7:
+        poi = ", ".join(
+            f"#{t.get('rank') or i} {t.get('name') or 'Unknown'} "
+            f"({int(t.get('comment_count') or 0)} interactions)"
+            for i, t in enumerate(top7[:7], 1)
+        )
+        findings_parts.append(
+            f"Priority interactors identified for follow-up (Top-7) are {poi}."
+        )
+    elif interactors:
+        findings_parts.append(
+            f"Top-7 ranking is empty; {len(interactors)} interactors appear in the "
+            f"full registry for manual triage."
+        )
+    else:
+        findings_parts.append("No interactors were recorded for this subject.")
+
+    if edges:
+        pair_bits = []
+        for e in edges[:3]:
+            a = nodes.get(e.get("source"), {})
+            b = nodes.get(e.get("target"), {})
+            an = a.get("name") or e.get("source")
+            bn = b.get("name") or e.get("target")
+            pair_bits.append(
+                f"{an} and {bn} ({int(e.get('weight') or 0)} shared posts)"
+            )
+        findings_parts.append(
+            f"The co-comment network contains {len(edges)} edge(s); the strongest "
+            f"pairs are {'; '.join(pair_bits)}."
+        )
+    else:
+        findings_parts.append(
+            "No co-comment pairs were detected, indicating limited shared-post "
+            "overlap among interactors in this collection window."
+        )
+
+    findings = " ".join(findings_parts)
+
+    # --- 4. Limitations & Gaps ---
+    gaps: list[str] = []
+    if subject["locked"]:
+        gaps.append("the source was locked or restricted at scrape time")
+    if not msg_n:
+        gaps.append("message-level activity and word analytics could not be computed")
+    if not top_words:
+        gaps.append("lexical theme extraction was unavailable")
+    if not faces:
+        gaps.append("no face clusters were produced")
+    if not interactors:
+        gaps.append("no interactors were recorded")
+    if gaps:
+        limitations = (
+            "This briefing is point-in-time and may be incomplete. Automated checks "
+            "flagged the following gaps: " + "; ".join(gaps) + ". "
+            "Findings should be corroborated against the full inventory, comment "
+            "samples, and source platform before operational use."
+        )
+    else:
+        limitations = (
+            "Automated checks did not flag major collection gaps; the report remains "
+            "point-in-time and may still omit deleted, restricted, or unscrapeable "
+            "material. Findings should be corroborated against the full inventory "
+            "before operational use."
+        )
+
+    # --- 5. Recommended Follow-up ---
+    follow: list[str] = []
+    if top7:
+        follow.append(
+            "Deep-dive Top-7 interactors (about fields, profile URLs, and comment samples)."
+        )
+    if top_words:
+        follow.append(
+            "Review Word Analysis / Word Searcher excerpts for slogan, entity, and "
+            "campaign language around the dominant terms."
+        )
+    if edges:
+        follow.append(
+            "Inspect strongest co-comment pairs for coordination or recurring circles."
+        )
+    if by_date:
+        follow.append(
+            "Align peak activity dates with external events or known campaign windows."
+        )
+    if not faces and (photo_n or reel_n):
+        follow.append(
+            "Re-run face clustering after verifying media downloads if identity "
+            "matching is required."
+        )
+    if not follow:
+        follow.append(
+            "Expand the scrape window or collect additional message history to "
+            "strengthen content and network coverage."
+        )
+    follow_up = " ".join(f"{i}. {item}" for i, item in enumerate(follow, 1))
+
+    sections = [
+        {
+            "number": 1,
+            "title": "Overview & Objectives",
+            "body": overview,
+        },
+        {
+            "number": 2,
+            "title": "Collection Outcomes",
+            "body": outcomes,
+        },
+        {
+            "number": 3,
+            "title": "Content & Network Findings",
+            "body": findings,
+        },
+        {
+            "number": 4,
+            "title": "Limitations & Gaps",
+            "body": limitations,
+        },
+        {
+            "number": 5,
+            "title": "Recommended Follow-up",
+            "body": follow_up,
+        },
+    ]
+
+    # Keep legacy "bullets" as section titles + first sentence for older consumers.
+    bullets = [f"{s['number']}. {s['title']}: {s['body']}" for s in sections]
+
+    return {
+        "subject": subject,
+        "collection": collection,
+        "sections": sections,
+        "bullets": bullets,
+        "top_words": [
+            {"word": w.get("word"), "count": int(w.get("count") or 0)}
+            for w in top_words[:10]
+        ],
+        "top_senders": top_senders[:8],
+        "top7": [
+            {
+                "rank": t.get("rank"),
+                "name": t.get("name"),
+                "comment_count": t.get("comment_count"),
+                "profile_url": t.get("profile_url"),
+            }
+            for t in top7[:7]
+        ],
+    }
+
+
+def build_executive_summary(data: dict, S) -> list:
+    """PDF section 00 — formal Telegram content executive briefing."""
+    exec_data = data.get("executive_summary") or compose_executive_summary(data)
+    sections = exec_data.get("sections") or []
+    collection = exec_data.get("collection") or {}
+    subject = exec_data.get("subject") or {}
+
+    story = [
+        Paragraph("00 / EXECUTIVE SUMMARY", S["section"]),
+    ]
+    m = _meaning_para("00", S)
+    if m:
+        story.append(m)
+    story.append(Spacer(1, 2 * mm))
+
     story.append(
         Paragraph(
-            "Contents: Profile · Co-Comment Matrix · Force Graph · All Interactors · Top-7 · "
-            "Full Post Inventory · Comment Samples · Timeline · Face Clusters",
-            S["cover_sub"],
+            f"<b>{_esc(subject.get('name') or 'Unknown Subject')}</b> · "
+            f"BE-{_esc(subject.get('case_id'))} · "
+            f"{_esc(_clip(subject.get('url'), 90))}",
+            S["body"],
         )
     )
+    story.append(Spacer(1, 2 * mm))
+
+    row = Table(
+        [[
+            _stat_box("Posts", collection.get("posts_total") or 0, S),
+            _stat_box("Messages", collection.get("messages") or 0, S),
+            _stat_box("Interactors", collection.get("interactors") or 0, S),
+            _stat_box("Top Terms", len(exec_data.get("top_words") or []), S),
+        ]],
+        colWidths=[40 * mm] * 4,
+    )
+    row.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "CENTER")]))
+    story.append(row)
+    story.append(Spacer(1, 4 * mm))
+
+    if not sections:
+        story.append(Paragraph("No executive summary could be composed.", S["body"]))
+    else:
+        for sec in sections:
+            story.append(
+                Paragraph(
+                    f"{int(sec.get('number') or 0)}. {_esc(sec.get('title') or '')}",
+                    S["sub"],
+                )
+            )
+            story.append(Paragraph(_esc(sec.get("body") or ""), S["body"]))
+            story.append(Spacer(1, 2 * mm))
+
+    top_words = exec_data.get("top_words") or []
+    if top_words:
+        story.append(Paragraph("Theme snapshot (top terms)", S["sub"]))
+        tw = [[Paragraph("Word", S["th"]), Paragraph("Count", S["th"])]]
+        for w in top_words[:8]:
+            tw.append([
+                Paragraph(_esc(w.get("word") or ""), S["td"]),
+                Paragraph(str(w.get("count") or 0), S["td_c"]),
+            ])
+        t = Table(tw, colWidths=[120 * mm, 40 * mm])
+        t.setStyle(_table_style())
+        story.append(t)
+
     story.append(PageBreak())
     return story
 
@@ -1121,13 +1625,247 @@ def build_timeline(timeline: list, S) -> list:
     return story
 
 
-def build_faces(face_clusters: list, S) -> list:
+def build_activity_timeline(activity: dict | None, S) -> list:
     story = [
-        Paragraph("08 / FACE CLUSTERS", S["section"]),
+        Paragraph("08 / ACTIVITY TIMELINE", S["section"]),
     ]
     m = _meaning_para("08", S)
     if m:
         story.append(m)
+    story.append(Spacer(1, 2 * mm))
+    if not activity or not int(activity.get("total_messages") or 0):
+        story.append(Paragraph("No message corpus available for activity metrics.", S["body"]))
+        story.append(PageBreak())
+        return story
+
+    by_date = activity.get("by_date") or []
+    row = Table(
+        [[
+            _stat_box("Messages", activity.get("total_messages") or 0, S),
+            _stat_box("Participants", activity.get("participants") or 0, S),
+            _stat_box("Active Days", len(by_date), S),
+            _stat_box("Hour Data", "Yes" if activity.get("has_hour_data") else "No", S),
+        ]],
+        colWidths=[40 * mm] * 4,
+    )
+    row.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "CENTER")]))
+    story.append(row)
+    story.append(Spacer(1, 3 * mm))
+
+    img = _pdf_image(chart_activity_day(activity), width_mm=170)
+    if img:
+        story.append(img)
+        story.append(Spacer(1, 2 * mm))
+    img2 = _pdf_image(chart_activity_weekday_hour(activity), width_mm=170)
+    if img2:
+        story.append(img2)
+        story.append(Spacer(1, 3 * mm))
+
+    story.append(Paragraph("Messages by date", S["sub"]))
+    data = [[
+        Paragraph("Date", S["th"]),
+        Paragraph("Messages", S["th"]),
+        Paragraph("Weekday", S["th"]),
+    ]]
+    for r in by_date[-40:]:
+        d = r.get("date") or "—"
+        wd = "—"
+        try:
+            wd = datetime.strptime(str(d)[:10], "%Y-%m-%d").strftime("%A")
+        except ValueError:
+            pass
+        data.append([
+            Paragraph(_esc(d), S["td"]),
+            Paragraph(str(r.get("messages") or 0), S["td_c"]),
+            Paragraph(_esc(wd), S["td_c"]),
+        ])
+    t = Table(data, colWidths=[55 * mm, 40 * mm, 55 * mm])
+    t.setStyle(_table_style())
+    story.append(t)
+
+    top_senders = activity.get("top_senders") or []
+    if top_senders:
+        story.append(Spacer(1, 3 * mm))
+        story.append(Paragraph("Top participants by message volume", S["sub"]))
+        sdata = [[
+            Paragraph("#", S["th"]),
+            Paragraph("Sender", S["th"]),
+            Paragraph("Messages", S["th"]),
+        ]]
+        for i, s in enumerate(top_senders[:15], 1):
+            sdata.append([
+                Paragraph(str(i), S["td_c"]),
+                Paragraph(_esc(_clip(s.get("sender"), 70)), S["td"]),
+                Paragraph(str(s.get("messages") or 0), S["td_c"]),
+            ])
+        st = Table(sdata, colWidths=[12 * mm, 120 * mm, 28 * mm])
+        st.setStyle(_table_style())
+        story.append(st)
+
+    story.append(PageBreak())
+    return story
+
+
+def build_word_analysis(word_stats: dict | None, S) -> list:
+    story = [
+        Paragraph("09 / WORD ANALYSIS", S["section"]),
+    ]
+    m = _meaning_para("09", S)
+    if m:
+        story.append(m)
+    story.append(Spacer(1, 2 * mm))
+    if not word_stats or not (word_stats.get("top_words") or []):
+        story.append(Paragraph("Not enough textual data for word analysis.", S["body"]))
+        story.append(PageBreak())
+        return story
+
+    row = Table(
+        [[
+            _stat_box("Messages", word_stats.get("total_messages") or 0, S),
+            _stat_box("Words", word_stats.get("total_words") or 0, S),
+            _stat_box("Unique", word_stats.get("unique_words") or 0, S),
+            _stat_box("Senders", max(0, len(word_stats.get("senders") or []) - 1), S),
+        ]],
+        colWidths=[40 * mm] * 4,
+    )
+    row.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "CENTER")]))
+    story.append(row)
+    story.append(Spacer(1, 3 * mm))
+
+    story.append(Paragraph("Visual Word Cloud", S["sub"]))
+    story.append(
+        Paragraph(
+            "Most frequent words across the collected corpus (stopwords excluded).",
+            S["body"],
+        )
+    )
+    cloud = _pdf_image(chart_word_cloud(word_stats), width_mm=170)
+    if cloud:
+        story.append(cloud)
+        story.append(Spacer(1, 3 * mm))
+    else:
+        story.append(Paragraph("Word cloud unavailable (install wordcloud).", S["body"]))
+        story.append(Spacer(1, 2 * mm))
+
+    story.append(Paragraph("Top Words Used", S["sub"]))
+    img = _pdf_image(chart_top_words(word_stats), width_mm=165)
+    if img:
+        story.append(img)
+        story.append(Spacer(1, 3 * mm))
+
+    story.append(Paragraph("Top words (All participants)", S["sub"]))
+    data = [[
+        Paragraph("#", S["th"]),
+        Paragraph("Word", S["th"]),
+        Paragraph("Count", S["th"]),
+    ]]
+    for i, w in enumerate((word_stats.get("top_words") or [])[:30], 1):
+        data.append([
+            Paragraph(str(i), S["td_c"]),
+            Paragraph(_esc(w.get("word") or ""), S["td"]),
+            Paragraph(str(w.get("count") or 0), S["td_c"]),
+        ])
+    t = Table(data, colWidths=[14 * mm, 110 * mm, 30 * mm])
+    t.setStyle(_table_style())
+    story.append(t)
+    story.append(PageBreak())
+    return story
+
+
+def build_word_searcher(searches: list | None, S) -> list:
+    story = [
+        Paragraph("10 / WORD SEARCHER", S["section"]),
+    ]
+    m = _meaning_para("10", S)
+    if m:
+        story.append(m)
+    story.append(Spacer(1, 2 * mm))
+    if not searches:
+        story.append(Paragraph("No high-frequency terms available to search.", S["body"]))
+        story.append(PageBreak())
+        return story
+
+    story.append(
+        Paragraph(
+            "Auto-searched the highest-frequency content words in the corpus "
+            "(same engine as the analysis Word Searcher).",
+            S["body"],
+        )
+    )
+    story.append(Spacer(1, 2 * mm))
+
+    summary = [[
+        Paragraph("Word", S["th"]),
+        Paragraph("Uses", S["th"]),
+        Paragraph("Top speaker", S["th"]),
+        Paragraph("Top count", S["th"]),
+    ]]
+    for item in searches:
+        top = (item.get("by_sender") or [{}])[0]
+        summary.append([
+            Paragraph(_esc(item.get("term") or ""), S["td"]),
+            Paragraph(str(item.get("total") or 0), S["td_c"]),
+            Paragraph(_esc(_clip(top.get("sender"), 42)), S["td"]),
+            Paragraph(str(top.get("count") or 0), S["td_c"]),
+        ])
+    st = Table(summary, colWidths=[35 * mm, 20 * mm, 80 * mm, 25 * mm])
+    st.setStyle(_table_style())
+    story.append(st)
+    story.append(Spacer(1, 4 * mm))
+
+    for item in searches[:6]:
+        term = item.get("term") or ""
+        block = [
+            Paragraph(f"Term · '{_esc(term)}' · {int(item.get('total') or 0)} uses", S["sub"]),
+        ]
+        who_img = _pdf_image(chart_word_who(term, item.get("by_sender") or []), width_mm=95)
+        if who_img:
+            block.append(who_img)
+            block.append(Spacer(1, 1.5 * mm))
+
+        who_rows = [[
+            Paragraph("Sender", S["th"]),
+            Paragraph("Count", S["th"]),
+        ]]
+        for s in (item.get("by_sender") or [])[:8]:
+            who_rows.append([
+                Paragraph(_esc(_clip(s.get("sender"), 55)), S["td"]),
+                Paragraph(str(s.get("count") or 0), S["td_c"]),
+            ])
+        wt = Table(who_rows, colWidths=[130 * mm, 25 * mm])
+        wt.setStyle(_table_style())
+        block.append(wt)
+
+        samples = item.get("samples") or []
+        if samples:
+            block.append(Spacer(1, 1.5 * mm))
+            block.append(Paragraph("Samples", S["body"]))
+            for s in samples[:3]:
+                block.append(
+                    Paragraph(
+                        f"<b>{_esc(_clip(s.get('sender'), 40))}</b>"
+                        f"{' · ' + _esc(s.get('date')) if s.get('date') else ''}"
+                        f" — {_esc(_clip(s.get('message'), 180))}",
+                        S["body"],
+                    )
+                )
+        block.append(Spacer(1, 3 * mm))
+        story.append(KeepTogether(block))
+
+    story.append(PageBreak())
+    return story
+
+
+def build_faces(face_clusters: list, S, face_sec: str = "08", disc_sec: str = "09") -> list:
+    story = [
+        Paragraph(f"{face_sec} / FACE CLUSTERS", S["section"]),
+    ]
+    # 11 = telegram numbering; non-telegram still uses the face blurb text
+    face_blurb = section_meaning("11") or (
+        "Faces automatically grouped across collected images. Each cluster is a likely "
+        "unique person; appearance_count is how often that face was seen."
+    )
+    story.append(Paragraph(_esc(face_blurb), S["meaning"]))
     story.append(Spacer(1, 2 * mm))
     if not face_clusters:
         story.append(Paragraph("No face clusters for this profile.", S["body"]))
@@ -1154,10 +1892,12 @@ def build_faces(face_clusters: list, S) -> list:
         story.append(t)
     story.append(Spacer(1, 8 * mm))
     story.append(HRFlowable(width="100%", thickness=0.6, color=C_BORDER, spaceAfter=6))
-    story.append(Paragraph("09 / DISCLAIMER", S["section"]))
-    dm = _meaning_para("09", S)
-    if dm:
-        story.append(dm)
+    story.append(Paragraph(f"{disc_sec} / DISCLAIMER", S["section"]))
+    disc_blurb = section_meaning("12") or (
+        "Legal and operational limits of this report: open-source / session-authenticated "
+        "data only, point-in-time, not legal advice, authorized use required."
+    )
+    story.append(Paragraph(_esc(disc_blurb), S["meaning"]))
     story.append(
         Paragraph(
             "This report is a full dump of locally collected open-source / session-authenticated "
@@ -1168,6 +1908,35 @@ def build_faces(face_clusters: list, S) -> list:
     )
     return story
 
+
+def _telegram_text_metrics(db_file: str, profile_id: int) -> dict:
+    """Activity / word / search payloads for Telegram PDF+JSON reports."""
+    try:
+        from platforms.telegram.text_metrics import (
+            get_activity_metrics,
+            get_word_stats,
+            search_word,
+        )
+    except ImportError:
+        return {"activity": None, "word_stats": None, "word_searches": []}
+
+    activity = get_activity_metrics(db_file, profile_id)
+    word_stats = get_word_stats(db_file, profile_id, sender="All", limit=40)
+    searches = []
+    for w in (word_stats.get("top_words") or [])[:8]:
+        term = w.get("word")
+        if not term:
+            continue
+        result = search_word(db_file, profile_id, term)
+        if result.get("total"):
+            searches.append(result)
+    return {
+        "activity": activity,
+        "word_stats": word_stats,
+        "word_searches": searches,
+    }
+
+
 def gather_report_data(profile_id: int, db_file: str, platform: str = "facebook") -> dict:
     """Collect everything PDF and JSON builders need."""
     if not db_file:
@@ -1175,12 +1944,12 @@ def gather_report_data(profile_id: int, db_file: str, platform: str = "facebook"
     profile = get_profile_summary(db_file, profile_id)
     if not profile or not profile.get("id"):
         raise ValueError(f"Profile {profile_id} not found")
-    return {
+    data = {
         "meta": {
             "platform": platform,
             "tool": "Birdy-Edwards Lite v2",
             "generated_at": datetime.now(timezone.utc).isoformat(),
-            "report_version": 1,
+            "report_version": 2 if platform == "telegram" else 1,
         },
         "profile": profile,
         "counts": get_post_type_counts(db_file, profile_id),
@@ -1191,7 +1960,14 @@ def gather_report_data(profile_id: int, db_file: str, platform: str = "facebook"
         "posts": _fetch_posts(db_file, profile_id),
         "comments": _fetch_comment_samples(db_file, profile_id, limit=150),
         "faces": _face_clusters(db_file, profile_id),
+        "activity": None,
+        "word_stats": None,
+        "word_searches": [],
     }
+    if platform == "telegram":
+        data.update(_telegram_text_metrics(db_file, profile_id))
+        data["executive_summary"] = compose_executive_summary(data)
+    return data
 
 
 def _report_stem(profile: dict, platform: str = "facebook") -> str:
@@ -1226,7 +2002,9 @@ def generate_report(
     )
 
     story: list = []
-    story.extend(build_cover(profile, S))
+    story.extend(build_cover(profile, S, platform=platform))
+    if platform == "telegram":
+        story.extend(build_executive_summary(data, S))
     story.extend(build_summary(profile, data["counts"], data["posts"], data["faces"], data["interactors"], S))
     story.extend(build_network(data["interactors"], data["coco"], S))
     story.extend(build_interactors(data["interactors"], S))
@@ -1234,7 +2012,13 @@ def generate_report(
     story.extend(build_posts(data["posts"], S))
     story.extend(build_comments(data["comments"], S))
     story.extend(build_timeline(data["timeline"], S))
-    story.extend(build_faces(data["faces"], S))
+    if platform == "telegram":
+        story.extend(build_activity_timeline(data.get("activity"), S))
+        story.extend(build_word_analysis(data.get("word_stats"), S))
+        story.extend(build_word_searcher(data.get("word_searches"), S))
+        story.extend(build_faces(data["faces"], S, face_sec="11", disc_sec="12"))
+    else:
+        story.extend(build_faces(data["faces"], S, face_sec="08", disc_sec="09"))
 
     doc.build(story, onFirstPage=_cover_canvas, onLaterPages=_footer)
     return out_path

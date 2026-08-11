@@ -18,6 +18,13 @@ from platforms.telegram.constants import (
 )
 from platforms.telegram.db import import_all, compute_frequency, extract_top7
 from platforms.telegram.collector import collect, check_session_valid
+from platforms.telegram.text_metrics import (
+    get_activity_metrics,
+    get_word_stats,
+    search_word,
+    word_frequencies,
+    render_word_cloud_png,
+)
 
 from core.pipeline import make_pipeline_state, reset_pipeline, set_step, finish_pipeline
 from core.report_routes import register_report_routes
@@ -427,6 +434,58 @@ def api_cocomment_graph(profile_id):
 def api_timeline(profile_id):
     try:
         return jsonify({'ok': True, 'data': get_interaction_timeline(DB_FILE, profile_id)})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@telegram_bp.route('/api/activity-metrics/<int:profile_id>')
+def api_activity_metrics(profile_id):
+    """ConvoMetrics-style message activity (day / weekday / hour)."""
+    try:
+        return jsonify({'ok': True, 'data': get_activity_metrics(DB_FILE, profile_id)})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@telegram_bp.route('/api/word-stats/<int:profile_id>')
+def api_word_stats(profile_id):
+    """Top words + cloud tokens, optional sender filter."""
+    try:
+        sender = (request.args.get('sender') or 'All').strip() or 'All'
+        limit = request.args.get('limit', 40, type=int) or 40
+        limit = max(5, min(limit, 100))
+        return jsonify({
+            'ok': True,
+            'data': get_word_stats(DB_FILE, profile_id, sender=sender, limit=limit),
+        })
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@telegram_bp.route('/api/word-cloud/<int:profile_id>')
+def api_word_cloud(profile_id):
+    """PNG visual word cloud (ConvoMetrics-style)."""
+    try:
+        sender = (request.args.get('sender') or 'All').strip() or 'All'
+        freqs = word_frequencies(DB_FILE, profile_id, sender=sender, limit=120)
+        png = render_word_cloud_png(freqs)
+        if not png:
+            return jsonify({'ok': False, 'error': 'No textual data for word cloud'}), 404
+        return Response(png, mimetype='image/png', headers={
+            'Cache-Control': 'no-store',
+        })
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@telegram_bp.route('/api/word-search/<int:profile_id>')
+def api_word_search(profile_id):
+    """Who said a word, and when."""
+    try:
+        term = (request.args.get('q') or request.args.get('term') or '').strip()
+        if not term:
+            return jsonify({'ok': False, 'error': 'Missing q parameter'}), 400
+        return jsonify({'ok': True, 'data': search_word(DB_FILE, profile_id, term)})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 
