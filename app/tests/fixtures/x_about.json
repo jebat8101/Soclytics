@@ -1,0 +1,19 @@
+{
+  "profile_url": "https://x.com/example",
+  "owner_name": "Example User",
+  "username": "example",
+  "is_locked": false,
+  "bio": "hello x",
+  "website": "https://example.com",
+  "followers": 10,
+  "following": 5,
+  "sections": {
+    "profile": [
+      {"field_type": "username", "label": "Username", "value": "@example"},
+      {"field_type": "bio", "label": "Bio", "value": "hello x"},
+      {"field_type": "website", "label": "Website", "value": "https://example.com"},
+      {"field_type": "followers", "label": "Followers", "value": "10"},
+      {"field_type": "following", "label": "Following", "value": "5"}
+    ]
+  }
+}

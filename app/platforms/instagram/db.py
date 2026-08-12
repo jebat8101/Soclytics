@@ -529,7 +529,7 @@ def import_all(
     expected_profile_url=None,
 ):
     print("\n" + "═" * 65)
-    print("BIRDY-EDWARDS LITE — Instagram DB Importer")
+    print("SOCMINT INTELLIGENCE — Instagram DB Importer")
     print("═" * 65)
 
     init_db(db_file)

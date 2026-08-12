@@ -1,5 +1,5 @@
 """
-BIRDY-EDWARDS LITE v2 — Full PDF / JSON intelligence report (no LLM).
+SOCMINT Intelligence — Full PDF / JSON intelligence report (no LLM).
 Mirrors analysis UI coverage: about, posts, interactors, Top-7,
 co-comment network, timeline, comments sample, face clusters.
 Telegram also includes ConvoMetrics-style activity / word / search sections.
@@ -46,7 +46,9 @@ from core.scoring import (
 # core/ is under app/; reports + icons live next to platform DBs
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPORTS_DIR = os.path.join(APP_DIR, "reports")
-LOGO_PATH = os.path.join(APP_DIR, "icons", "logo.jpeg")
+_LOGO_PNG = os.path.join(APP_DIR, "icons", "logo.png")
+_LOGO_JPEG = os.path.join(APP_DIR, "icons", "logo.jpeg")
+LOGO_PATH = _LOGO_PNG if os.path.isfile(_LOGO_PNG) else _LOGO_JPEG
 
 W, H = A4
 
@@ -69,7 +71,7 @@ SECTION_MEANINGS = {
     ),
     "subject": "Display name of the target account, channel, group or chat under investigation.",
     "profile": "Canonical public URL (or synthetic URI) used as the collection key.",
-    "case_id": "Internal Birdy-Edwards Lite case number for this profile row in the local database.",
+    "case_id": "Internal SOCMINT Intelligence case number for this profile row in the local database.",
     "scraped": "Timestamp of the collection run that produced the data in this report.",
     "generated": "UTC time this PDF/DOCX file was written — may be later than the scrape.",
     "locked": "Whether the source surface was restricted / private at collection time.",
@@ -82,6 +84,10 @@ SECTION_MEANINGS = {
         "High-level snapshot of everything collected for this subject. Counts match the "
         "analysis console: posts by type, unique interactors, total interactions, face "
         "clusters and how many Top-7 slots are filled."
+    ),
+    "01_x": (
+        "High-level snapshot of collected X.com statuses. Header counts are the tweet "
+        "inventory plus summed Reply, Repost, Like and View figures shown on each post."
     ),
     "about": (
         "Structured profile fields scraped from the target (biography, members, admins, "
@@ -131,6 +137,10 @@ SECTION_MEANINGS = {
     "text_posts": (
         "Text posts or aggregated day transcripts (e.g. Telegram group day threads). "
         "Interactors listed on a day thread co-occurred in that day’s conversation."
+    ),
+    "x_posts": (
+        "X.com posts in native engagement order: the tweet text/media plus Reply, "
+        "Repost, Like and View counts scraped from each status."
     ),
     "06": (
         "Sample of stored comment / message text with author and post type. Empty stubs "
@@ -264,7 +274,7 @@ def _footer(canvas, doc):
     canvas.line(16 * mm, 11 * mm, W - 16 * mm, 11 * mm)
     canvas.setFont("Helvetica", 7)
     canvas.setFillColor(C_SUBTEXT)
-    canvas.drawString(16 * mm, 6 * mm, "BIRDY-EDWARDS LITE · Full SOCMINT Report · No LLM")
+    canvas.drawString(16 * mm, 6 * mm, "SOCMINT INTELLIGENCE · Full SOCMINT Report · No LLM")
     canvas.drawRightString(W - 16 * mm, 6 * mm, f"Page {doc.page}")
     canvas.restoreState()
 
@@ -281,7 +291,7 @@ def _cover_canvas(canvas, doc):
     canvas.setFont("Helvetica-Bold", 9)
     canvas.drawCentredString(W / 2, H - 10 * mm, "CONFIDENTIAL · FOR AUTHORIZED USE ONLY")
     canvas.setFont("Helvetica", 8)
-    canvas.drawCentredString(W / 2, 4 * mm, "Generated locally · Birdy-Edwards Lite")
+    canvas.drawCentredString(W / 2, 4 * mm, "Generated locally · SOCMINT Intelligence")
     canvas.restoreState()
 
 
@@ -375,6 +385,36 @@ def _fetch_posts(db_file: str, profile_id: int) -> dict:
     texts = [dict(r) for r in cur.fetchall()]
     con.close()
     return {"photos": photos, "reels": reels, "texts": texts}
+
+
+def _fetch_x_posts(db_file: str, profile_id: int) -> dict:
+    """All X tweets from text_posts with native Reply / Repost / Like / View counts."""
+    con = sqlite3.connect(db_file)
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+    cur.execute(
+        """
+        SELECT tp.id, tp.post_url AS url, tp.date_text, tp.body AS caption,
+               tp.image_src, tp.media_type, tp.scraped_at,
+               COALESCE(tp.like_count, 0) AS like_count,
+               COALESCE(tp.reply_count, 0) AS reply_count,
+               COALESCE(tp.repost_count, 0) AS repost_count,
+               COALESCE(tp.view_count, 0) AS view_count
+        FROM text_posts tp
+        WHERE tp.profile_id = ?
+        ORDER BY tp.id DESC
+        """,
+        (profile_id,),
+    )
+    texts = [dict(r) for r in cur.fetchall()]
+    con.close()
+    return {"photos": [], "reels": [], "texts": texts}
+
+
+def _fetch_x_timeline(db_file: str, profile_id: int) -> list:
+    """Date-wise Reply / Repost / Like / View for the X PDF timeline."""
+    from platforms.x.db import get_x_timeline
+    return get_x_timeline(db_file, profile_id)
 
 
 def _fetch_comment_samples(db_file: str, profile_id: int, limit: int = 120) -> list:
@@ -472,6 +512,59 @@ def _filter_cocomment(coco: dict, threshold: int = 1, max_nodes: int = 24) -> tu
         if e["source"] in keep2 and e["target"] in keep2
     ]
     return nodes, edges
+
+
+def chart_x_engagement_mix(eng: dict):
+    """Donut matching the X dashboard Engagement Mix (Reply / Repost / Like)."""
+    reply = int((eng or {}).get("reply") or 0)
+    repost = int((eng or {}).get("repost") or 0)
+    like = int((eng or {}).get("like") or 0)
+    if reply + repost + like <= 0:
+        return None
+    fig, ax = plt.subplots(figsize=(5.4, 3.4))
+    fig.patch.set_facecolor("white")
+    ax.pie(
+        [reply, repost, like],
+        labels=["Reply", "Repost", "Like"],
+        colors=["#d4a24c", "#ff7a29", "#ff4d88"],
+        autopct=lambda p: f"{p:.0f}%" if p >= 4 else "",
+        startangle=90,
+        wedgeprops={"width": 0.42, "edgecolor": "white", "linewidth": 2},
+        textprops={"fontsize": 9, "fontweight": "bold"},
+    )
+    ax.set_title("Engagement Mix · Reply / Repost / Like", fontsize=11, fontweight="bold", color="#1a1a2e")
+    plt.tight_layout()
+    return _chart_buf(fig)
+
+
+def chart_x_timeline(rows: list):
+    """Date-wise bars + view line matching the X dashboard timeline."""
+    if not rows:
+        return None
+    fig, ax = plt.subplots(figsize=(8.4, 3.2))
+    fig.patch.set_facecolor("white")
+    xs = [str(r.get("date") or "") for r in rows]
+    reply = [int(r.get("reply") or r.get("replies") or 0) for r in rows]
+    repost = [int(r.get("repost") or r.get("reposts") or 0) for r in rows]
+    like = [int(r.get("like") or r.get("likes") or 0) for r in rows]
+    view = [int(r.get("view") or r.get("views") or 0) for r in rows]
+    idx = list(range(len(xs)))
+    ax.bar(idx, reply, color="#d4a24c", label="Reply")
+    ax.bar(idx, repost, bottom=reply, color="#ff7a29", label="Repost")
+    ax.bar(idx, like, bottom=[a + b for a, b in zip(reply, repost)], color="#ff4d88", label="Like")
+    ax.set_xticks(idx)
+    ax.set_xticklabels(xs, rotation=55, ha="right", fontsize=7)
+    ax.set_ylabel("Reply / Repost / Like", fontsize=8)
+    ax.grid(axis="y", linestyle="--", alpha=0.35)
+    ax2 = ax.twinx()
+    ax2.plot(idx, view, color="#555", marker="o", markersize=3.5, linewidth=1.6, label="View")
+    ax2.set_ylabel("View", fontsize=8, color="#555")
+    h1, l1 = ax.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    ax.legend(h1 + h2, l1 + l2, loc="upper left", fontsize=8)
+    ax.set_title("Engagement · Date-wise", fontsize=12, fontweight="bold", color="#1a1a2e")
+    plt.tight_layout()
+    return _chart_buf(fig)
 
 
 def _chart_buf(fig):
@@ -806,14 +899,24 @@ def build_cover(profile: dict, S, platform: str = "facebook") -> list:
     story = [Spacer(1, 24 * mm)]
     if os.path.isfile(LOGO_PATH):
         try:
-            img = Image(LOGO_PATH, width=40 * mm, height=40 * mm)
+            logo_w, logo_h = 48 * mm, 41 * mm
+            try:
+                from PIL import Image as PILImage
+                with PILImage.open(LOGO_PATH) as im:
+                    iw, ih = im.size
+                if iw and ih:
+                    logo_w = 48 * mm
+                    logo_h = logo_w * (ih / iw)
+            except Exception:
+                pass
+            img = Image(LOGO_PATH, width=logo_w, height=logo_h)
             img.hAlign = "CENTER"
             story.append(img)
             story.append(Spacer(1, 6 * mm))
         except Exception:
             pass
 
-    story.append(Paragraph("BIRDY-EDWARDS LITE", S["cover_title"]))
+    story.append(Paragraph("SOCMINT INTELLIGENCE", S["cover_title"]))
     story.append(Paragraph("Full SOCMINT Intelligence Report", S["cover_sub"]))
     story.append(Paragraph("NO LLM · LOCAL COMPLETE DUMP", S["confidential"]))
     m = _meaning_para("cover", S)
@@ -873,6 +976,11 @@ def build_cover(profile: dict, S, platform: str = "facebook") -> list:
             "Contents: Executive Summary · Profile · Co-Comment Matrix · Force Graph · "
             "All Interactors · Top-7 · Full Post Inventory · Comment Samples · Timeline · "
             "Activity Timeline · Word Analysis · Word Searcher · Face Clusters"
+        )
+    elif platform == "x":
+        contents = (
+            "Contents: Profile · Engagement Mix · Timeline · X Posts "
+            "(Reply · Repost · Like · View)"
         )
     else:
         contents = (
@@ -1235,7 +1343,18 @@ def build_executive_summary(data: dict, S) -> list:
     return story
 
 
-def build_summary(profile: dict, counts: dict, posts: dict, faces: list, interactors: list, S) -> list:
+def _x_engagement_totals(posts: dict) -> dict:
+    texts = posts.get("texts") or []
+    return {
+        "posts": len(texts),
+        "reply": sum(int(t.get("reply_count") or 0) for t in texts),
+        "repost": sum(int(t.get("repost_count") or 0) for t in texts),
+        "like": sum(int(t.get("like_count") or 0) for t in texts),
+        "view": sum(int(t.get("view_count") or 0) for t in texts),
+    }
+
+
+def build_summary(profile: dict, counts: dict, posts: dict, faces: list, interactors: list, S, platform: str = "facebook") -> list:
     posts_c = counts.get("posts") or {}
     ix = counts.get("interactions") or {}
     photo_n = len(posts.get("photos") or [])
@@ -1248,11 +1367,24 @@ def build_summary(profile: dict, counts: dict, posts: dict, faces: list, interac
     story = [
         Paragraph("01 / PROFILE SUMMARY", S["section"]),
     ]
-    m = _meaning_para("01", S)
+    m = _meaning_para("01_x" if platform == "x" else "01", S)
     if m:
         story.append(m)
     story.append(Spacer(1, 2 * mm))
-    row = Table(
+    if platform == "x":
+        xt = _x_engagement_totals(posts)
+        row = Table(
+            [[
+                _stat_box("Posts", xt["posts"], S),
+                _stat_box("Reply", xt["reply"], S),
+                _stat_box("Repost", xt["repost"], S),
+                _stat_box("Like", xt["like"], S),
+                _stat_box("View", xt["view"], S),
+            ]],
+            colWidths=[32 * mm] * 5,
+        )
+    else:
+        row = Table(
         [
             [
                 _stat_box("Posts", total_posts, S),
@@ -1274,7 +1406,14 @@ def build_summary(profile: dict, counts: dict, posts: dict, faces: list, interac
     story.append(Spacer(1, 3 * mm))
     story.append(Paragraph("Metric meanings", S["sub"]))
     metric_gloss = [[Paragraph("Metric", S["th"]), Paragraph("Meaning", S["th"])]]
-    for label, key in (
+    x_metrics = (
+        ("Posts", "Collected X.com status items for this profile."),
+        ("Reply", "Sum of reply counts shown on each tweet."),
+        ("Repost", "Sum of repost / retweet counts shown on each tweet."),
+        ("Like", "Sum of like counts shown on each tweet."),
+        ("View", "Sum of view counts shown on each tweet."),
+    )
+    default_metrics = (
         ("Posts", "posts_stat"),
         ("Photos", "photos_stat"),
         ("Reels", "reels_stat"),
@@ -1283,10 +1422,11 @@ def build_summary(profile: dict, counts: dict, posts: dict, faces: list, interac
         ("Comments", "comments_stat"),
         ("Faces", "faces_stat"),
         ("Top-7", "top7_stat"),
-    ):
+    )
+    for label, key in (x_metrics if platform == "x" else default_metrics):
         metric_gloss.append([
             Paragraph(label, S["td"]),
-            Paragraph(_esc(section_meaning(key)), S["td"]),
+            Paragraph(_esc(key if platform == "x" else section_meaning(key)), S["td"]),
         ])
     mg = Table(metric_gloss, colWidths=[28 * mm, 142 * mm])
     mg.setStyle(_table_style())
@@ -1519,6 +1659,126 @@ def _post_table(title: str, rows: list, S, meaning_key: str | None = None) -> li
     return out
 
 
+def build_x_engagement_mix(posts: dict, S) -> list:
+    """Dashboard card: Engagement Mix · Reply / Repost / Like / View."""
+    xt = _x_engagement_totals(posts)
+    mix = xt["reply"] + xt["repost"] + xt["like"]
+    story = [
+        Paragraph("02 / ENGAGEMENT MIX", S["section"]),
+        Paragraph(
+            "Same totals as the analysis dashboard donut. View is listed separately "
+            "because impression volume dwarfs Reply / Repost / Like.",
+            S["meaning"],
+        ),
+    ]
+    row = Table(
+        [[
+            _stat_box("Reply", xt["reply"], S),
+            _stat_box("Repost", xt["repost"], S),
+            _stat_box("Like", xt["like"], S),
+            _stat_box("View", xt["view"], S),
+        ]],
+        colWidths=[40 * mm] * 4,
+    )
+    row.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "CENTER")]))
+    story.append(row)
+    story.append(Spacer(1, 3 * mm))
+    img = _pdf_image(chart_x_engagement_mix(xt), width_mm=120)
+    if img:
+        story.append(img)
+        story.append(Spacer(1, 2 * mm))
+    denom = mix or 1
+    data = [[
+        Paragraph("Metric", S["th"]),
+        Paragraph("Count", S["th"]),
+        Paragraph("Share of mix", S["th"]),
+    ]]
+    for label, key in (("Reply", "reply"), ("Repost", "repost"), ("Like", "like")):
+        n = xt[key]
+        data.append([
+            Paragraph(label, S["td"]),
+            Paragraph(str(n), S["td_c"]),
+            Paragraph(f"{round(n / denom * 100)}%", S["td_c"]),
+        ])
+    data.append([
+        Paragraph("View", S["td"]),
+        Paragraph(str(xt["view"]), S["td_c"]),
+        Paragraph("impressions (not in mix %)", S["td"]),
+    ])
+    t = Table(data, colWidths=[40 * mm, 40 * mm, 90 * mm])
+    t.setStyle(_table_style())
+    story.append(t)
+    story.append(PageBreak())
+    return story
+
+
+def build_x_posts(posts: dict, S) -> list:
+    """Dashboard X Posts feed: each tweet with Reply · Repost · Like · View."""
+    rows = posts.get("texts") or []
+    xt = _x_engagement_totals(posts)
+    story = [
+        Paragraph("04 / X POSTS", S["section"]),
+    ]
+    m = _meaning_para("x_posts", S)
+    if m:
+        story.append(m)
+    story.append(
+        Paragraph(
+            f"{xt['posts']} posts · Reply {xt['reply']} · Repost {xt['repost']} · "
+            f"Like {xt['like']} · View {xt['view']}",
+            S["body"],
+        )
+    )
+    story.append(Spacer(1, 2 * mm))
+    if not rows:
+        story.append(Paragraph("No X posts collected.", S["body"]))
+        story.append(PageBreak())
+        return story
+
+    for i, r in enumerate(rows, 1):
+        url = r.get("url") or r.get("post_url") or ""
+        caption = (r.get("caption") or r.get("body") or "").strip() or url or "(no text)"
+        media = r.get("media_type") or ("image" if r.get("image_src") else "text")
+        head = Table(
+            [[
+                Paragraph(f"#{i}", S["th"]),
+                Paragraph(_esc(r.get("date_text") or "—"), S["th"]),
+                Paragraph(_esc(media), S["th"]),
+            ]],
+            colWidths=[18 * mm, 40 * mm, 112 * mm],
+        )
+        head.setStyle(_table_style())
+        metrics = Table(
+            [[
+                Paragraph(f"Reply  {int(r.get('reply_count') or 0)}", S["td_c"]),
+                Paragraph(f"Repost  {int(r.get('repost_count') or 0)}", S["td_c"]),
+                Paragraph(f"Like  {int(r.get('like_count') or 0)}", S["td_c"]),
+                Paragraph(f"View  {int(r.get('view_count') or 0)}", S["td_c"]),
+            ]],
+            colWidths=[42.5 * mm] * 4,
+        )
+        metrics.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.Color(0.96, 0.94, 0.90)),
+            ("BOX", (0, 0), (-1, -1), 0.4, C_BORDER),
+            ("INNERGRID", (0, 0), (-1, -1), 0.3, C_BORDER),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        block = [
+            head,
+            Spacer(1, 1.5 * mm),
+            Paragraph(_esc(caption), S["body"]),
+        ]
+        if r.get("image_src"):
+            block.append(Paragraph(_esc(r.get("image_src")), S["meaning"]))
+        if url:
+            block.append(Paragraph(_esc(url), S["meaning"]))
+        block.extend([Spacer(1, 1.5 * mm), metrics, Spacer(1, 4 * mm)])
+        story.append(KeepTogether(block))
+    story.append(PageBreak())
+    return story
+
+
 def build_posts(posts: dict, S) -> list:
     story = [
         Paragraph("05 / FULL POST INVENTORY", S["section"]),
@@ -1576,6 +1836,51 @@ def build_comments(samples: list, S) -> list:
             ]
         )
     t = Table(data, colWidths=[10 * mm, 16 * mm, 36 * mm, 108 * mm])
+    t.setStyle(_table_style())
+    story.append(t)
+    story.append(PageBreak())
+    return story
+
+
+def build_x_timeline(timeline: list, S) -> list:
+    story = [
+        Paragraph("03 / ENGAGEMENT TIMELINE", S["section"]),
+    ]
+    m = _meaning_para("x_posts", S)
+    if m:
+        story.append(m)
+    story.append(Paragraph(
+        "Same date-wise series as the analysis dashboard: stacked Reply / Repost / Like, View as a line.",
+        S["meaning"],
+    ))
+    story.append(Spacer(1, 2 * mm))
+    if not timeline:
+        story.append(Paragraph("No dated tweet rows available.", S["body"]))
+        story.append(PageBreak())
+        return story
+
+    rows = list(timeline.values()) if isinstance(timeline, dict) else timeline
+    rows = sorted(rows, key=lambda r: str(r.get("date") or ""))
+    img = _pdf_image(chart_x_timeline(rows), width_mm=170)
+    if img:
+        story.append(img)
+        story.append(Spacer(1, 3 * mm))
+    data = [[
+        Paragraph("Date", S["th"]),
+        Paragraph("Reply", S["th"]),
+        Paragraph("Repost", S["th"]),
+        Paragraph("Like", S["th"]),
+        Paragraph("View", S["th"]),
+    ]]
+    for r in rows:
+        data.append([
+            Paragraph(_esc(r.get("date") or "—"), S["td"]),
+            Paragraph(str(r.get("reply") or r.get("replies") or 0), S["td_c"]),
+            Paragraph(str(r.get("repost") or r.get("reposts") or 0), S["td_c"]),
+            Paragraph(str(r.get("like") or r.get("likes") or 0), S["td_c"]),
+            Paragraph(str(r.get("view") or r.get("views") or 0), S["td_c"]),
+        ])
+    t = Table(data, colWidths=[50 * mm, 28 * mm, 28 * mm, 28 * mm, 28 * mm])
     t.setStyle(_table_style())
     story.append(t)
     story.append(PageBreak())
@@ -1944,26 +2249,38 @@ def gather_report_data(profile_id: int, db_file: str, platform: str = "facebook"
     profile = get_profile_summary(db_file, profile_id)
     if not profile or not profile.get("id"):
         raise ValueError(f"Profile {profile_id} not found")
+    is_x = platform == "x"
     data = {
         "meta": {
             "platform": platform,
-            "tool": "Birdy-Edwards Lite v2",
+            "tool": "SOCMINT Intelligence",
             "generated_at": datetime.now(timezone.utc).isoformat(),
-            "report_version": 2 if platform == "telegram" else 1,
+            "report_version": 2 if platform in ("telegram", "x") else 1,
         },
         "profile": profile,
         "counts": get_post_type_counts(db_file, profile_id),
-        "interactors": get_all_interactors(db_file, profile_id),
-        "top7": get_top7(db_file, profile_id),
-        "coco": get_cocomment_graph(db_file, profile_id),
-        "timeline": get_interaction_timeline(db_file, profile_id),
-        "posts": _fetch_posts(db_file, profile_id),
-        "comments": _fetch_comment_samples(db_file, profile_id, limit=150),
-        "faces": _face_clusters(db_file, profile_id),
+        "interactors": [] if is_x else get_all_interactors(db_file, profile_id),
+        "top7": [] if is_x else get_top7(db_file, profile_id),
+        "coco": {"nodes": [], "edges": []} if is_x else get_cocomment_graph(db_file, profile_id),
+        "timeline": (
+            _fetch_x_timeline(db_file, profile_id)
+            if is_x
+            else get_interaction_timeline(db_file, profile_id)
+        ),
+        "posts": (
+            _fetch_x_posts(db_file, profile_id)
+            if is_x
+            else _fetch_posts(db_file, profile_id)
+        ),
+        "engagement": None,
+        "comments": [] if is_x else _fetch_comment_samples(db_file, profile_id, limit=150),
+        "faces": [] if is_x else _face_clusters(db_file, profile_id),
         "activity": None,
         "word_stats": None,
         "word_searches": [],
     }
+    if is_x:
+        data["engagement"] = _x_engagement_totals(data["posts"])
     if platform == "telegram":
         data.update(_telegram_text_metrics(db_file, profile_id))
         data["executive_summary"] = compose_executive_summary(data)
@@ -1997,28 +2314,36 @@ def generate_report(
         rightMargin=14 * mm,
         topMargin=14 * mm,
         bottomMargin=16 * mm,
-        title=f"Birdy-Edwards Lite Full Report — {owner}",
-        author="Birdy-Edwards Lite v2",
+        title=f"SOCMINT Intelligence Full Report — {owner}",
+        author="SOCMINT Intelligence",
     )
 
     story: list = []
     story.extend(build_cover(profile, S, platform=platform))
     if platform == "telegram":
         story.extend(build_executive_summary(data, S))
-    story.extend(build_summary(profile, data["counts"], data["posts"], data["faces"], data["interactors"], S))
-    story.extend(build_network(data["interactors"], data["coco"], S))
-    story.extend(build_interactors(data["interactors"], S))
-    story.extend(build_top7_section(data["top7"], S))
-    story.extend(build_posts(data["posts"], S))
-    story.extend(build_comments(data["comments"], S))
-    story.extend(build_timeline(data["timeline"], S))
-    if platform == "telegram":
-        story.extend(build_activity_timeline(data.get("activity"), S))
-        story.extend(build_word_analysis(data.get("word_stats"), S))
-        story.extend(build_word_searcher(data.get("word_searches"), S))
-        story.extend(build_faces(data["faces"], S, face_sec="11", disc_sec="12"))
+    story.extend(build_summary(
+        profile, data["counts"], data["posts"], data["faces"], data["interactors"], S,
+        platform=platform,
+    ))
+    if platform == "x":
+        story.extend(build_x_engagement_mix(data["posts"], S))
+        story.extend(build_x_timeline(data["timeline"], S))
+        story.extend(build_x_posts(data["posts"], S))
     else:
-        story.extend(build_faces(data["faces"], S, face_sec="08", disc_sec="09"))
+        story.extend(build_network(data["interactors"], data["coco"], S))
+        story.extend(build_interactors(data["interactors"], S))
+        story.extend(build_top7_section(data["top7"], S))
+        story.extend(build_posts(data["posts"], S))
+        story.extend(build_comments(data["comments"], S))
+        story.extend(build_timeline(data["timeline"], S))
+        if platform == "telegram":
+            story.extend(build_activity_timeline(data.get("activity"), S))
+            story.extend(build_word_analysis(data.get("word_stats"), S))
+            story.extend(build_word_searcher(data.get("word_searches"), S))
+            story.extend(build_faces(data["faces"], S, face_sec="11", disc_sec="12"))
+        else:
+            story.extend(build_faces(data["faces"], S, face_sec="08", disc_sec="09"))
 
     doc.build(story, onFirstPage=_cover_canvas, onLaterPages=_footer)
     return out_path
@@ -2037,9 +2362,52 @@ def generate_json_report(
         out_path = os.path.join(
             REPORTS_DIR, f"{_report_stem(data['profile'], platform)}.json"
         )
+    payload = _x_dashboard_payload(data) if platform == "x" else data
     with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2, default=str)
+        json.dump(payload, f, ensure_ascii=False, indent=2, default=str)
     return out_path
+
+
+def _x_dashboard_payload(data: dict) -> dict:
+    """JSON matches the X analysis dashboard: header, mix, timeline, tweet feed."""
+    profile = data.get("profile") or {}
+    eng = data.get("engagement") or _x_engagement_totals(data.get("posts") or {})
+    feed = []
+    for t in (data.get("posts") or {}).get("texts") or []:
+        feed.append({
+            "post_url": t.get("url") or t.get("post_url"),
+            "date_text": t.get("date_text"),
+            "body": t.get("caption") or t.get("body"),
+            "image_src": t.get("image_src"),
+            "media_type": t.get("media_type") or ("image" if t.get("image_src") else "text"),
+            "reply_count": int(t.get("reply_count") or 0),
+            "repost_count": int(t.get("repost_count") or 0),
+            "like_count": int(t.get("like_count") or 0),
+            "view_count": int(t.get("view_count") or 0),
+        })
+    timeline = []
+    for r in data.get("timeline") or []:
+        timeline.append({
+            "date": r.get("date"),
+            "reply": int(r.get("reply") or r.get("replies") or 0),
+            "repost": int(r.get("repost") or r.get("reposts") or 0),
+            "like": int(r.get("like") or r.get("likes") or 0),
+            "view": int(r.get("view") or r.get("views") or 0),
+        })
+    return {
+        "meta": data.get("meta"),
+        "profile": {
+            "id": profile.get("id"),
+            "owner_name": profile.get("owner_name"),
+            "profile_url": profile.get("profile_url"),
+            "is_locked": profile.get("is_locked"),
+            "scraped_at": profile.get("scraped_at"),
+            "fields": profile.get("fields") or [],
+        },
+        "engagement": eng,
+        "timeline": timeline,
+        "posts": feed,
+    }
 
 
 def generate_all_reports(

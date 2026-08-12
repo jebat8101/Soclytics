@@ -1,0 +1,24 @@
+[
+  {
+    "post_url": "https://x.com/example/status/111",
+    "date": "2026-08-01",
+    "caption": "first tweet",
+    "image_src": null,
+    "media_type": "text",
+    "like_count": 12,
+    "reply_count": 3,
+    "repost_count": 2,
+    "view_count": 400
+  },
+  {
+    "post_url": "https://x.com/example/status/222",
+    "date": "2026-08-02",
+    "caption": "photo tweet",
+    "image_src": "https://pbs.twimg.com/media/abc.jpg",
+    "media_type": "image",
+    "like_count": 5,
+    "reply_count": 1,
+    "repost_count": 0,
+    "view_count": 90
+  }
+]

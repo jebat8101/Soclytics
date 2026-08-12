@@ -663,19 +663,19 @@ def api_face_cluster_members(cluster_id):
 
 @instagram_bp.route('/logo')
 def serve_logo():
-    """Serve icons/logo.jpeg"""
-    logo = os.path.join(BASE_DIR, 'icons', 'logo.jpeg')
+    """Serve icons/logo.png"""
+    logo = os.path.join(BASE_DIR, 'icons', 'logo.png')
     if os.path.exists(logo):
-        return send_file(logo, mimetype='image/jpeg')
+        return send_file(logo, mimetype='image/png')
     import base64
     px = base64.b64decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7')
     return Response(px, mimetype='image/gif')
 
 @instagram_bp.route('/threat')
 def serve_icon():
-    logo = os.path.join(BASE_DIR, 'icons', 'search.png')
+    logo = os.path.join(BASE_DIR, 'icons', 'search1.png')
     if os.path.exists(logo):
-        return send_file(logo, mimetype='image/jpeg')
+        return send_file(logo, mimetype='image/png')
     import base64
     px = base64.b64decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7')
     return Response(px, mimetype='image/gif')

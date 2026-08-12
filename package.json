@@ -1,5 +1,5 @@
 {
-  "name": "birdy-edwards-lite",
+  "name": "socmint-intelligence",
   "private": true,
   "scripts": {
     "docker:up": "docker compose up --build -d",

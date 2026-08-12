@@ -597,7 +597,7 @@ def import_all(
     db_file=DB_FILE
 ):
     print("\n" + "═"*65)
-    print("BIRDY-EDWARDS LITE — DB Importer")
+    print("SOCMINT INTELLIGENCE — DB Importer")
     print("═"*65)
 
     init_db(db_file)

@@ -5,6 +5,13 @@ _IG_USER = re.compile(r'^[A-Za-z0-9._]{1,30}$')
 _RD_USER = re.compile(r'^[A-Za-z0-9_-]{3,20}$')
 _TH_USER = re.compile(r'^[A-Za-z0-9._]{1,30}$')
 _TG_USER = re.compile(r'^[A-Za-z0-9_]{4,32}$')
+_X_USER = re.compile(r'^[A-Za-z0-9_]{1,15}$')
+_X_RESERVED = {
+    'home', 'explore', 'search', 'i', 'settings', 'messages', 'notifications',
+    'compose', 'login', 'intent', 'hashtag', 'tos', 'privacy', 'about',
+    'download', 'jobs', 'help', 'signup', 'share', 'status', 'hashtags',
+    'lists', 'communities', 'connect_people', 'following', 'followers',
+}
 
 def normalize_instagram_target(raw: str) -> str:
     s = (raw or '').strip()
@@ -77,6 +84,33 @@ def normalize_threads_target(raw: str) -> str:
     if len(parts) > 1:
         raise ValueError('Threads target must be a profile URL, not a post URL')
     return f'https://www.threads.com/@{user}/'
+
+
+def normalize_x_target(raw: str) -> str:
+    s = (raw or '').strip()
+    if not s:
+        raise ValueError('empty X target')
+    if s.startswith('@'):
+        s = s[1:]
+    if '://' not in s and '/' not in s:
+        if not _X_USER.match(s):
+            raise ValueError(f'invalid X username: {s}')
+        return f'https://x.com/{s}'
+    u = urlparse(s if '://' in s else 'https://' + s)
+    host = (u.hostname or '').lower().replace('www.', '')
+    if host not in ('x.com', 'twitter.com', 'mobile.twitter.com', 'mobile.x.com'):
+        raise ValueError('not an X / Twitter URL')
+    parts = [p for p in u.path.split('/') if p]
+    if not parts or parts[0].lower() in _X_RESERVED:
+        raise ValueError('X target must be a profile URL or username')
+    if any(p.lower() == 'status' for p in parts):
+        raise ValueError('X target must be a profile URL, not a status URL')
+    user = parts[0]
+    if user.startswith('@'):
+        user = user[1:]
+    if not _X_USER.match(user):
+        raise ValueError(f'invalid X username: {user}')
+    return f'https://x.com/{user}'
 
 
 def extract_telegram_username(url: str) -> str | None:

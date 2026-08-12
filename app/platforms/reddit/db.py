@@ -461,7 +461,7 @@ def import_all(
     expected_profile_url=None,
 ):
     print("\n" + "═" * 65)
-    print("BIRDY-EDWARDS LITE — Reddit DB Importer")
+    print("SOCMINT INTELLIGENCE — Reddit DB Importer")
     print("═" * 65)
 
     init_db(db_file)

@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="app/icons/logo.jpeg" alt="BIRDY-EDWARDS LITE Logo" width="300"/>
+<img src="app/icons/logo.png" alt="SOCMINT Intelligence Logo" width="300"/>
 
-# BIRDY-EDWARDS LITE
+# SOCMINT INTELLIGENCE
 
 ### *Infiltrate & Expose — No LLM Edition*
 
@@ -20,15 +20,15 @@
 
 ---
 
-## What is Birdy-Edwards Lite?
+## What is SOCMINT Intelligence?
 
-Birdy-Edwards Lite is a stripped-down, dependency-light edition of the full Birdy-Edwards SOCMINT platform. It runs four separate mini-apps — **Facebook**, **Instagram**, **Reddit**, and **Threads** — each with its own cookies, database, and investigation history.
+SOCMINT Intelligence is a local-first, dependency-light multi-platform SOCMINT platform. It runs four separate mini-apps — **Facebook**, **Instagram**, **Reddit**, and **Threads** — each with its own cookies, database, and investigation history.
 
 Each platform performs the same core workflow — data gathering, interaction mapping, network visualization, and (where applicable) face clustering — without requiring any AI model, Docker container, or cloud service.
 
 Everything runs on your local machine. No GPU required. No model downloads. No official platform APIs.
 
-<img src="app/icons/demo.png" alt="BIRDY-EDWARDS Web UI" width="100%"/>
+<img src="app/icons/demo.png" alt="SOCMINT Intelligence Web UI" width="100%"/>
 
 
 ---
@@ -36,7 +36,7 @@ Everything runs on your local machine. No GPU required. No model downloads. No o
 ## Architecture
 
 <div align="center">
-<img src="app/icons/workflow-lite.png" alt="BIRDY-EDWARDS LITE Pipeline" width="100%"/>
+<img src="app/icons/workflow-lite.png" alt="SOCMINT Intelligence Pipeline" width="100%"/>
 </div>
 
 Shared shell tabs switch between mini-apps:
@@ -95,7 +95,7 @@ Auth is operator cookies + SeleniumBase only (no Graph API / no `praw`).
 
 ## ⚠️ Disclaimer
 
-> BIRDY-EDWARDS LITE is developed strictly for **authorized intelligence, law enforcement, and academic research purposes only.**
+> SOCMINT INTELLIGENCE is developed strictly for **authorized intelligence, law enforcement, and academic research purposes only.**
 >
 > **Scope of data access:**
 > - This tool operates exclusively using a valid platform session authenticated by the operator (Facebook, Instagram, Reddit, or Threads cookies)
@@ -110,7 +110,7 @@ Auth is operator cookies + SeleniumBase only (no Graph API / no `praw`).
 > - The developer assumes **no liability** for misuse, unauthorized data collection, or any harm caused by improper use
 > - All investigations are the **sole responsibility of the operator**
 >
-> By using BIRDY-EDWARDS LITE, you confirm that your use is lawful, authorized, and compliant with all applicable laws in your jurisdiction.
+> By using SOCMINT INTELLIGENCE, you confirm that your use is lawful, authorized, and compliant with all applicable laws in your jurisdiction.
 
 ---
 
@@ -204,7 +204,7 @@ http://localhost:5000/telegram
 
 ## Session Setup (cookies)
 
-Birdy-Edwards Lite uses the **Cookie-Editor** browser extension. Each mini-app has its own cookie file — import cookies while logged into that platform.
+SOCMINT Intelligence uses the **Cookie-Editor** browser extension. Each mini-app has its own cookie file — import cookies while logged into that platform.
 
 > 🔒 **Operational Security:** Use a dedicated investigation account rather than your personal account.
 
@@ -298,7 +298,7 @@ Files are written under `app/reports/` and downloaded by the browser. Requires `
 
 ## How You Can Help
 
-If you find BIRDY-EDWARDS useful or interesting, here are a few ways you can support the project:
+If you find SOCMINT Intelligence useful or interesting, here are a few ways you can support the project:
 
 - ⭐ **Star the repository** — it helps others discover the tool
 - 🐛 **Report bugs** — open an Issue if something isn't working
@@ -382,6 +382,6 @@ Then open a Pull Request against `main`.
 
 <div align="center">
 
-**BIRDY-EDWARDS LITE** · Infiltrate & Expose · No LLM · Local-First · Facebook · Instagram · Reddit · Threads
+**SOCMINT INTELLIGENCE** · Infiltrate & Expose · No LLM · Local-First · Facebook · Instagram · Reddit · Threads · Telegram
 
 </div>

@@ -33,6 +33,9 @@ app/telegram_posts.json
 app/telegram_config.json
 app/telegram.session
 app/*.session
+app/x_about.json
+app/x_posts.json
+app/x_cookies.pkl
 
 # ── Runtime directories ───────────────────────────────────────────────────────
 app/face_data/

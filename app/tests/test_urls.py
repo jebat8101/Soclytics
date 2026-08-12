@@ -4,6 +4,7 @@ from core.urls import (
     normalize_reddit_target,
     normalize_threads_target,
     normalize_telegram_target,
+    normalize_x_target,
     extract_telegram_username,
 )
 
@@ -80,3 +81,24 @@ def test_telegram_ok(raw, expected):
 def test_telegram_reject(raw):
     with pytest.raises(ValueError):
         normalize_telegram_target(raw)
+
+@pytest.mark.parametrize('raw,expected', [
+    ('elonmusk', 'https://x.com/elonmusk'),
+    ('@elonmusk', 'https://x.com/elonmusk'),
+    ('https://x.com/elonmusk', 'https://x.com/elonmusk'),
+    ('https://twitter.com/elonmusk/', 'https://x.com/elonmusk'),
+    ('https://www.twitter.com/elonmusk', 'https://x.com/elonmusk'),
+])
+def test_x_ok(raw, expected):
+    assert normalize_x_target(raw) == expected
+
+@pytest.mark.parametrize('raw', [
+    'https://x.com/elonmusk/status/123',
+    'https://twitter.com/i/web/status/123',
+    'https://x.com/search?q=x',
+    'https://x.com/home',
+    '',
+])
+def test_x_reject(raw):
+    with pytest.raises(ValueError):
+        normalize_x_target(raw)

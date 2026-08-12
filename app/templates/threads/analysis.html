@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Birdy-Edwards Lite — Analysis</title>
+    <title>SOCMINT Intelligence — Analysis</title>
     <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700;900&display=swap"
         rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -124,8 +124,10 @@
             height: 44px;
             border-radius: 8px;
             background-image: url('/threads/logo');
-            background-size: cover;
+            background-size: contain;
+            background-repeat: no-repeat;
             background-position: center;
+            background-color: #000;
             border: 1px solid var(--accent-dim);
             box-shadow: 0 0 20px var(--accent-glow);
         }
@@ -1823,7 +1825,7 @@
         <div class="brand">
             <div class="brand-logo"></div>
             <div class="brand-text">
-                <h1>Birdy-Edwards <span class="brand-badge">LITE</span></h1>
+                <h1>SOCMINT Intelligence</h1>
                 <div class="subtitle">Infiltrate &amp; Expose · Intel Console</div>
             </div>
         </div>
@@ -1845,7 +1847,7 @@
     <div class="target-header">
         <div class="target-avatar" id="targetAvatar"></div>
         <div class="target-info">
-            <div class="label">▸ TARGET SUBJECT · CASE #BE-<span id="caseId">----</span></div>
+            <div class="label">▸ TARGET SUBJECT · CASE #SI-<span id="caseId">----</span></div>
             <div class="target-name-row">
                 <button class="check-more-btn" id="checkMoreBtn" onclick="showAboutForTarget()">CHECK MORE DATA</button>
                 <div class="name" id="targetName">Loading…</div>
@@ -2059,9 +2061,9 @@
         <div class="footer-left">
             <span>PIPELINE · <strong>SELENIUMBASE</strong></span>
             <span>MODEL · <strong>CNN / HOG FACE_RECOGNITION</strong></span>
-            <span>MODE · <strong>LITE (NO LLM)</strong></span>
+            <span>MODE · <strong>LOCAL (NO LLM)</strong></span>
         </div>
-        <div>BIRDY-EDWARDS v0.9 · AUTHORIZED USE ONLY</div>
+        <div>SOCMINT INTELLIGENCE · AUTHORIZED USE ONLY</div>
     </div>
 
     <!-- GRAPH FULLSCREEN OVERLAY -->
@@ -2124,7 +2126,7 @@
                 const blob = await res.blob();
                 const cd = res.headers.get('Content-Disposition') || '';
                 const m = /filename="?([^";]+)"?/i.exec(cd);
-                const name = m ? m[1] : `birdy_${PLATFORM_PREFIX.slice(1)}_${PROFILE}.${fmt}`;
+                const name = m ? m[1] : `socmint_${PLATFORM_PREFIX.slice(1)}_${PROFILE}.${fmt}`;
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
