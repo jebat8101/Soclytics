@@ -577,7 +577,7 @@ def import_all(
     expected_profile_url=None,
 ):
     print('\n' + '═' * 65)
-    print('SOCMINT INTELLIGENCE - Threads DB Importer')
+    print('Soclytics - Threads DB Importer')
     print('═' * 65)
 
     init_db(db_file)

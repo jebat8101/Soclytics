@@ -1,5 +1,5 @@
 {
-  "name": "socmint-intelligence",
+  "name": "soclytics",
   "private": true,
   "scripts": {
     "docker:up": "docker compose up --build -d",

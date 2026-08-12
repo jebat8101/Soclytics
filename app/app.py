@@ -88,7 +88,7 @@ if __name__ == '__main__':
         print(f"{RED}██████╔╝██║██║  ██║██████╔╝   ██║         ███████╗██████╔╝╚███╔███╔╝██║  ██║██║  ██║██████╔╝███████║{RESET}")
         print(f"{RED}╚═════╝ ╚═╝╚═╝  ╚═╝╚═════╝    ╚═╝         ╚══════╝╚═════╝  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚══════╝{RESET}")
         print()
-        print(f"{YELLOW}                        Infiltrate & Expose — Setup v1.0{RESET}")
+        print(f"{YELLOW}                        Beyond The Metrics — Setup v1.0{RESET}")
         print(f"{CYAN}                        Developed by Jeet Ganguly{RESET}")
         print(f"Visit -> http://127.0.0.1:{port}")
         if port != int(os.environ.get('PORT', 5000)):

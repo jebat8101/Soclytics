@@ -1,5 +1,5 @@
 """
-SOCMINT Intelligence — Full PDF / JSON intelligence report (no LLM).
+Soclytics — Full PDF / JSON intelligence report (no LLM).
 Mirrors analysis UI coverage: about, posts, interactors, Top-7,
 co-comment network, timeline, comments sample, face clusters.
 Telegram also includes ConvoMetrics-style activity / word / search sections.
@@ -71,7 +71,7 @@ SECTION_MEANINGS = {
     ),
     "subject": "Display name of the target account, channel, group or chat under investigation.",
     "profile": "Canonical public URL (or synthetic URI) used as the collection key.",
-    "case_id": "Internal SOCMINT Intelligence case number for this profile row in the local database.",
+    "case_id": "Internal Soclytics case number for this profile row in the local database.",
     "scraped": "Timestamp of the collection run that produced the data in this report.",
     "generated": "UTC time this PDF/DOCX file was written — may be later than the scrape.",
     "locked": "Whether the source surface was restricted / private at collection time.",
@@ -274,7 +274,7 @@ def _footer(canvas, doc):
     canvas.line(16 * mm, 11 * mm, W - 16 * mm, 11 * mm)
     canvas.setFont("Helvetica", 7)
     canvas.setFillColor(C_SUBTEXT)
-    canvas.drawString(16 * mm, 6 * mm, "SOCMINT INTELLIGENCE · Full SOCMINT Report · No LLM")
+    canvas.drawString(16 * mm, 6 * mm, "Soclytics · Full Report · No LLM")
     canvas.drawRightString(W - 16 * mm, 6 * mm, f"Page {doc.page}")
     canvas.restoreState()
 
@@ -291,7 +291,7 @@ def _cover_canvas(canvas, doc):
     canvas.setFont("Helvetica-Bold", 9)
     canvas.drawCentredString(W / 2, H - 10 * mm, "CONFIDENTIAL · FOR AUTHORIZED USE ONLY")
     canvas.setFont("Helvetica", 8)
-    canvas.drawCentredString(W / 2, 4 * mm, "Generated locally · SOCMINT Intelligence")
+    canvas.drawCentredString(W / 2, 4 * mm, "Generated locally · Soclytics")
     canvas.restoreState()
 
 
@@ -916,8 +916,8 @@ def build_cover(profile: dict, S, platform: str = "facebook") -> list:
         except Exception:
             pass
 
-    story.append(Paragraph("SOCMINT INTELLIGENCE", S["cover_title"]))
-    story.append(Paragraph("Full SOCMINT Intelligence Report", S["cover_sub"]))
+    story.append(Paragraph("Soclytics", S["cover_title"]))
+    story.append(Paragraph("Full Soclytics Report", S["cover_sub"]))
     story.append(Paragraph("NO LLM · LOCAL COMPLETE DUMP", S["confidential"]))
     m = _meaning_para("cover", S)
     if m:
@@ -2253,7 +2253,7 @@ def gather_report_data(profile_id: int, db_file: str, platform: str = "facebook"
     data = {
         "meta": {
             "platform": platform,
-            "tool": "SOCMINT Intelligence",
+            "tool": "Soclytics",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "report_version": 2 if platform in ("telegram", "x") else 1,
         },
@@ -2314,8 +2314,8 @@ def generate_report(
         rightMargin=14 * mm,
         topMargin=14 * mm,
         bottomMargin=16 * mm,
-        title=f"SOCMINT Intelligence Full Report — {owner}",
-        author="SOCMINT Intelligence",
+        title=f"Soclytics Full Report — {owner}",
+        author="Soclytics",
     )
 
     story: list = []

@@ -14,7 +14,7 @@ echo -e "${RED}██╔══██╗██║██╔══██╗██�
 echo -e "${RED}██████╔╝██║██║  ██║██████╔╝   ██║         ███████╗██████╔╝╚███╔███╔╝██║  ██║██║  ██║██████╔╝███████║${RESET}"
 echo -e "${RED}╚═════╝ ╚═╝╚═╝  ╚═╝╚═════╝    ╚═╝         ╚══════╝╚═════╝  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚══════╝${RESET}"
 echo ""
-echo -e "${YELLOW}                        Infiltrate & Expose — Lite Edition${RESET}"
+echo -e "${YELLOW}                        Beyond The Metrics — Lite Edition${RESET}"
 echo -e "${CYAN}                        Developed by Jeet Ganguly${RESET}"
 echo -e "${CYAN}                        No LLM · No Docker · Local-First${RESET}"
 echo ""

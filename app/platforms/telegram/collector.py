@@ -1,5 +1,5 @@
 """
-Telegram collector for SOCMINT INTELLIGENCE.
+Telegram collector for Soclytics.
 
 Primary: Telethon (MTProto) — channel posts with discussion-group comments,
 group activity bucketed by day, named reactors, forward sources, mentions,

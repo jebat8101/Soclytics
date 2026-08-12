@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="app/icons/logo.png" alt="SOCMINT Intelligence Logo" width="300"/>
+<img src="app/icons/logo.png" alt="Soclytics Logo" width="300"/>
 
-# SOCMINT INTELLIGENCE
+# Soclytics
 
-### *Infiltrate & Expose — No LLM Edition*
+### *Beyond The Metrics — No LLM Edition*
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue?style=flat-square&logo=python)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-Web%20UI-black?style=flat-square&logo=flask)](https://flask.palletsprojects.com)
@@ -20,15 +20,15 @@
 
 ---
 
-## What is SOCMINT Intelligence?
+## What is Soclytics?
 
-SOCMINT Intelligence is a local-first, dependency-light multi-platform SOCMINT platform. It runs four separate mini-apps — **Facebook**, **Instagram**, **Reddit**, and **Threads** — each with its own cookies, database, and investigation history.
+Soclytics is a local-first, dependency-light multi-platform SOCMINT platform. It runs four separate mini-apps — **Facebook**, **Instagram**, **Reddit**, and **Threads** — each with its own cookies, database, and investigation history.
 
 Each platform performs the same core workflow — data gathering, interaction mapping, network visualization, and (where applicable) face clustering — without requiring any AI model, Docker container, or cloud service.
 
 Everything runs on your local machine. No GPU required. No model downloads. No official platform APIs.
 
-<img src="app/icons/demo.png" alt="SOCMINT Intelligence Web UI" width="100%"/>
+<img src="app/icons/demo.png" alt="Soclytics Web UI" width="100%"/>
 
 
 ---
@@ -36,7 +36,7 @@ Everything runs on your local machine. No GPU required. No model downloads. No o
 ## Architecture
 
 <div align="center">
-<img src="app/icons/workflow-lite.png" alt="SOCMINT Intelligence Pipeline" width="100%"/>
+<img src="app/icons/workflow-lite.png" alt="Soclytics Pipeline" width="100%"/>
 </div>
 
 Shared shell tabs switch between mini-apps:
@@ -95,7 +95,7 @@ Auth is operator cookies + SeleniumBase only (no Graph API / no `praw`).
 
 ## ⚠️ Disclaimer
 
-> SOCMINT INTELLIGENCE is developed strictly for **authorized intelligence, law enforcement, and academic research purposes only.**
+> Soclytics is developed strictly for **authorized intelligence, law enforcement, and academic research purposes only.**
 >
 > **Scope of data access:**
 > - This tool operates exclusively using a valid platform session authenticated by the operator (Facebook, Instagram, Reddit, or Threads cookies)
@@ -110,7 +110,7 @@ Auth is operator cookies + SeleniumBase only (no Graph API / no `praw`).
 > - The developer assumes **no liability** for misuse, unauthorized data collection, or any harm caused by improper use
 > - All investigations are the **sole responsibility of the operator**
 >
-> By using SOCMINT INTELLIGENCE, you confirm that your use is lawful, authorized, and compliant with all applicable laws in your jurisdiction.
+> By using Soclytics, you confirm that your use is lawful, authorized, and compliant with all applicable laws in your jurisdiction.
 
 ---
 
@@ -204,7 +204,7 @@ http://localhost:5000/telegram
 
 ## Session Setup (cookies)
 
-SOCMINT Intelligence uses the **Cookie-Editor** browser extension. Each mini-app has its own cookie file — import cookies while logged into that platform.
+Soclytics uses the **Cookie-Editor** browser extension. Each mini-app has its own cookie file — import cookies while logged into that platform.
 
 > 🔒 **Operational Security:** Use a dedicated investigation account rather than your personal account.
 
@@ -298,7 +298,7 @@ Files are written under `app/reports/` and downloaded by the browser. Requires `
 
 ## How You Can Help
 
-If you find SOCMINT Intelligence useful or interesting, here are a few ways you can support the project:
+If you find Soclytics useful or interesting, here are a few ways you can support the project:
 
 - ⭐ **Star the repository** — it helps others discover the tool
 - 🐛 **Report bugs** — open an Issue if something isn't working
@@ -382,6 +382,6 @@ Then open a Pull Request against `main`.
 
 <div align="center">
 
-**SOCMINT INTELLIGENCE** · Infiltrate & Expose · No LLM · Local-First · Facebook · Instagram · Reddit · Threads · Telegram
+**Soclytics** · Beyond The Metrics · No LLM · Local-First · Facebook · Instagram · Reddit · Threads · Telegram
 
 </div>
