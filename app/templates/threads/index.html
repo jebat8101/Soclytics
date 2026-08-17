@@ -1180,7 +1180,7 @@
               <label for="depth-deep" class="scan-depth-label">
                 <span class="scan-icon"></span>
                 <span class="scan-name">Deep</span>
-                <span class="scan-desc">20 posts<br>20 reels<br>20 photos</span>
+                <span class="scan-desc">50 posts<br>50 reels<br>50 photos</span>
               </label>
             </div>
           </div>
@@ -1441,9 +1441,10 @@
               </div>
             </div>
             <div class="record-stats">
-              <div class="record-stat"><div class="v">${r.post_count.toLocaleString()}</div><div class="k">Posts</div></div>
-              <div class="record-stat"><div class="v">${r.interactor_count}</div><div class="k">Interactors</div></div>
-              <div class="record-stat"><div class="v">${r.face_count}</div><div class="k">Faces</div></div>
+              <div class="record-stat"><div class="v">${(r.post_count || 0).toLocaleString()}</div><div class="k">Posts</div></div>
+              <div class="record-stat"><div class="v">${(r.reply_count || 0).toLocaleString()}</div><div class="k">Comment</div></div>
+              <div class="record-stat"><div class="v">${(r.repost_count || 0).toLocaleString()}</div><div class="k">Repost</div></div>
+              <div class="record-stat"><div class="v">${(r.like_count || 0).toLocaleString()}</div><div class="k">Like</div></div>
             </div>
             <div class="record-footer">
               <div class="record-date">${fmtDate(r.scraped_at)}</div>

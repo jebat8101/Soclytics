@@ -1440,8 +1440,10 @@
               </div>
             </div>
             <div class="record-stats">
-              <div class="record-stat"><div class="v">${r.post_count.toLocaleString()}</div><div class="k">Submissions</div></div>
-              <div class="record-stat"><div class="v">${r.interactor_count}</div><div class="k">Interactors</div></div>
+              <div class="record-stat"><div class="v">${(r.post_count || 0).toLocaleString()}</div><div class="k">Submissions</div></div>
+              <div class="record-stat"><div class="v">${(r.reply_count || 0).toLocaleString()}</div><div class="k">Comment</div></div>
+              <div class="record-stat"><div class="v">${(r.repost_count || 0).toLocaleString()}</div><div class="k">Repost</div></div>
+              <div class="record-stat"><div class="v">${(r.like_count || 0).toLocaleString()}</div><div class="k">Like</div></div>
             </div>
             <div class="record-footer">
               <div class="record-date">${fmtDate(r.scraped_at)}</div>

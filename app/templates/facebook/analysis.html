@@ -1756,6 +1756,78 @@
             font-weight: 900;
             color: var(--accent);
         }
+        .metrics-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .metrics-chart {
+            height: 220px;
+            position: relative;
+        }
+
+        .metrics-chart.tall {
+            height: 260px;
+        }
+
+        .metrics-stat-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .metrics-stat {
+            background: var(--bg-elev);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .metrics-stat .v {
+            font-size: 22px;
+            font-weight: 900;
+            color: var(--accent-bright);
+        }
+
+        .metrics-stat .k {
+            margin-top: 4px;
+            font-size: 10px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-faint);
+            font-weight: 700;
+        }
+
+        .x-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            max-width: 420px;
+        }
+
+        .x-metric {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-faint);
+        }
+
+        .x-metric .ico {
+            font-size: 14px;
+            width: 18px;
+            text-align: center;
+        }
+
+        .x-metric.comment .ico { color: #1d9bf0; }
+        .x-metric.repost .ico { color: #00ba7c; }
+        .x-metric.like .ico { color: #f91880; }
+        .x-metric.view .ico { color: var(--text-dim); }
+
 
         /* ===== REELS TABLE ===== */
         .reel-table {
@@ -1938,6 +2010,24 @@
             </div>
             <div class="top7-list" id="top7List">
                 <div class="loading">LOADING</div>
+            </div>
+        </div>
+
+
+        <div class="card span-12">
+            <div class="card-head">
+                <div class="card-title">Activity Timeline</div>
+                <div class="card-meta" id="activityMeta">LIKE · COMMENT · REPOST · DAY / WEEKDAY / HOUR</div>
+            </div>
+            <div class="metrics-stat-row">
+                <div class="metrics-stat"><div class="v" id="statLikes">–</div><div class="k">Like</div></div>
+                <div class="metrics-stat"><div class="v" id="statComments">–</div><div class="k">Comment</div></div>
+                <div class="metrics-stat"><div class="v" id="statReposts">–</div><div class="k">Repost</div></div>
+            </div>
+            <div class="metrics-chart tall"><canvas id="activityDayChart"></canvas></div>
+            <div class="metrics-split" style="margin-top:14px">
+                <div class="metrics-chart"><canvas id="activityWeekdayChart"></canvas></div>
+                <div class="metrics-chart"><canvas id="activityHourChart"></canvas></div>
             </div>
         </div>
 
@@ -2157,6 +2247,13 @@
 
         const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
         const fmt = n => (n == null ? '–' : Number(n).toLocaleString());
+        const fmtCompact = n => {
+            const v = Number(n || 0);
+            if (v >= 1_000_000) return (v / 1_000_000).toFixed(v >= 10_000_000 ? 0 : 1).replace(/\.0$/, '') + 'M';
+            if (v >= 1_000) return (v / 1_000).toFixed(v >= 10_000 ? 0 : 1).replace(/\.0$/, '') + 'K';
+            return v.toLocaleString();
+        };
+
         const initials = name => {
             if (!name) return '?';
             return name.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
@@ -2209,7 +2306,7 @@
             document.getElementById('caseId').textContent = String(PROFILE).padStart(4, '0');
 
             const [summary, interactors, top7, graph, cocomment, timeline, counts, faces,
-                photoPosts, textPosts, reelPosts] = await Promise.all([
+                photoPosts, textPosts, reelPosts, activity] = await Promise.all([
                     api(`/facebook/api/profile-summary/${PROFILE}`),
                     api(`/facebook/api/all-interactors/${PROFILE}`),
                     api(`/facebook/api/top7/${PROFILE}`),
@@ -2221,6 +2318,7 @@
                     api(`/facebook/api/photo-posts/${PROFILE}`),
                     api(`/facebook/api/text-posts/${PROFILE}`),
                     api(`/facebook/api/reel-posts/${PROFILE}`),
+                    api(`/facebook/api/activity-metrics/${PROFILE}`),
                 ]);
 
             if (summary.ok && summary.data) {
@@ -2255,6 +2353,7 @@
             if (photoPosts.ok) renderPhotoGallery(photoPosts.data || []);
             if (textPosts.ok) renderTextGallery(textPosts.data || []);
             if (reelPosts.ok) renderReelTable(reelPosts.data || []);
+            if (activity.ok) renderActivityMetrics(activity.data || {});
         }
 
         // ============================================================
@@ -3270,7 +3369,7 @@
                 <div class="post-card-caption">${escapeHtml(p.caption || '(no caption)')}<br></div>
                 <div class="post-card-meta">
                     <span class="post-card-date">${escapeHtml(p.date_text || '—')}</span>
-                    <span class="post-card-intrx">${p.interaction_count} intrx</span>
+                    ${engagementMetricsHtml(p, false)}
                 </div>
             </div>
         </div>
@@ -3298,7 +3397,7 @@
                 <div class="post-card-caption">${escapeHtml(p.post_url || '—')}</div>
                 <div class="post-card-meta">
                     <span class="post-card-date">${escapeHtml(p.date_text || '—')}</span>
-                    <span class="post-card-intrx">${p.interaction_count} intrx</span>
+                    ${engagementMetricsHtml(p, false)}
                 </div>
             </div>
         </div>
@@ -3324,6 +3423,103 @@
         </tr>
     `).join('');
         }
+
+        let activityDayInstance = null;
+        let activityWeekdayInstance = null;
+        let activityHourInstance = null;
+
+        function chartDefaults() {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: cssVar('--text-dim'), font: { family: 'Google Sans', weight: 700, size: 11 } }
+                    },
+                    tooltip: {
+                        bodyFont: { family: 'Google Sans', weight: 700 },
+                        titleFont: { family: 'Google Sans', weight: 700 }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: cssVar('--grid-line') },
+                        ticks: { color: cssVar('--text-faint'), font: { family: 'Google Sans', size: 10, weight: 700 }, maxRotation: 45 }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: cssVar('--grid-line') },
+                        ticks: { color: cssVar('--text-faint'), font: { family: 'Google Sans', size: 11, weight: 700 } }
+                    }
+                }
+            };
+        }
+
+        function engagementMetricsHtml(p, includeView) {
+            const comments = Number(p.reply_count || 0);
+            const reposts = Number(p.repost_count || 0);
+            const likes = Number(p.like_count || 0);
+            const cols = includeView ? 4 : 3;
+            const viewHtml = includeView
+                ? `<div class="x-metric view" title="View"><span class="ico">👁</span>${fmtCompact(Number(p.view_count || 0))}</div>`
+                : '';
+            return `<div class="x-metrics" style="grid-template-columns: repeat(${cols}, minmax(0, 1fr)); max-width: ${includeView ? 520 : 420}px;">
+                    <div class="x-metric comment" title="Comment"><span class="ico">💬</span>${fmtCompact(comments)}</div>
+                    <div class="x-metric repost" title="Repost"><span class="ico">🔁</span>${fmtCompact(reposts)}</div>
+                    <div class="x-metric like" title="Like"><span class="ico">❤</span>${fmtCompact(likes)}</div>
+                    ${viewHtml}
+                </div>`;
+        }
+
+        function renderActivityMetrics(data) {
+            const byDate = data.by_date || [];
+            const byWeekday = data.by_weekday || [];
+            const byHour = data.by_hour || [];
+            document.getElementById('statLikes').textContent = fmt(data.total_like || 0);
+            document.getElementById('statComments').textContent = fmt(data.total_comment || 0);
+            document.getElementById('statReposts').textContent = fmt(data.total_repost || 0);
+            const hourNote = data.has_hour_data ? 'HOUR OK' : 'HOUR N/A';
+            document.getElementById('activityMeta').textContent =
+                `LIKE · COMMENT · REPOST · ${hourNote}`;
+
+            const stackOpts = { ...chartDefaults(), scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } };
+            const stackDatasets = (rows, likeKey, commentKey, repostKey) => [
+                { label: 'Like', data: rows.map(d => d[likeKey] || 0), backgroundColor: '#f91880', stack: 'e' },
+                { label: 'Comment', data: rows.map(d => d[commentKey] || 0), backgroundColor: '#1d9bf0', stack: 'e' },
+                { label: 'Repost', data: rows.map(d => d[repostKey] || 0), backgroundColor: '#00ba7c', stack: 'e' },
+            ];
+
+            if (activityDayInstance) activityDayInstance.destroy();
+            activityDayInstance = new Chart(document.getElementById('activityDayChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: byDate.map(d => d.date),
+                    datasets: stackDatasets(byDate, 'like', 'comment', 'repost'),
+                },
+                options: stackOpts,
+            });
+
+            if (activityWeekdayInstance) activityWeekdayInstance.destroy();
+            activityWeekdayInstance = new Chart(document.getElementById('activityWeekdayChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: byWeekday.map(d => (d.day || '').slice(0, 3)),
+                    datasets: stackDatasets(byWeekday, 'like', 'comment', 'repost'),
+                },
+                options: stackOpts,
+            });
+
+            if (activityHourInstance) activityHourInstance.destroy();
+            activityHourInstance = new Chart(document.getElementById('activityHourChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: byHour.map(d => String(d.hour).padStart(2, '0')),
+                    datasets: stackDatasets(byHour, 'like', 'comment', 'repost'),
+                },
+                options: stackOpts,
+            });
+        }
+
         loadAll();
 
     </script>

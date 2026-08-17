@@ -1954,6 +1954,32 @@
             letter-spacing: 0.5px;
         }
 
+        .x-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            max-width: 420px;
+        }
+
+        .x-metric {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-faint);
+        }
+
+        .x-metric .ico {
+            font-size: 14px;
+            width: 18px;
+            text-align: center;
+        }
+
+        .x-metric.comment .ico { color: #1d9bf0; }
+        .x-metric.repost .ico { color: #00ba7c; }
+        .x-metric.like .ico { color: #f91880; }
+
         .post-card-intrx {
             font-size: 11px;
             font-weight: 900;
@@ -2148,12 +2174,12 @@
         <div class="card span-12">
             <div class="card-head">
                 <div class="card-title">Activity Timeline</div>
-                <div class="card-meta" id="activityMeta">MESSAGES · DAY / WEEKDAY / HOUR</div>
+                <div class="card-meta" id="activityMeta">LIKE · COMMENT · REPOST · DAY / WEEKDAY / HOUR</div>
             </div>
             <div class="metrics-stat-row">
-                <div class="metrics-stat"><div class="v" id="actTotalMsg">–</div><div class="k">Messages</div></div>
-                <div class="metrics-stat"><div class="v" id="actParticipants">–</div><div class="k">Participants</div></div>
-                <div class="metrics-stat"><div class="v" id="actDays">–</div><div class="k">Active Days</div></div>
+                <div class="metrics-stat"><div class="v" id="statLikes">–</div><div class="k">Like</div></div>
+                <div class="metrics-stat"><div class="v" id="statComments">–</div><div class="k">Comment</div></div>
+                <div class="metrics-stat"><div class="v" id="statReposts">–</div><div class="k">Repost</div></div>
             </div>
             <div class="metrics-chart tall"><canvas id="activityDayChart"></canvas></div>
             <div class="metrics-split" style="margin-top:14px">
@@ -2414,6 +2440,12 @@
 
         const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
         const fmt = n => (n == null ? '–' : Number(n).toLocaleString());
+        const fmtCompact = n => {
+            const v = Number(n || 0);
+            if (v >= 1_000_000) return (v / 1_000_000).toFixed(v >= 10_000_000 ? 0 : 1).replace(/\.0$/, '') + 'M';
+            if (v >= 1_000) return (v / 1_000).toFixed(v >= 10_000 ? 0 : 1).replace(/\.0$/, '') + 'K';
+            return v.toLocaleString();
+        };
         const initials = name => {
             if (!name) return '?';
             return name.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
@@ -2701,34 +2733,43 @@
             };
         }
 
+        function engagementMetricsHtml(p) {
+            const comments = Number(p.reply_count || 0);
+            const reposts = Number(p.repost_count || 0);
+            const likes = Number(p.like_count || 0);
+            return `<div class="x-metrics">
+                    <div class="x-metric comment" title="Comment"><span class="ico">💬</span>${fmtCompact(comments)}</div>
+                    <div class="x-metric repost" title="Repost"><span class="ico">🔁</span>${fmtCompact(reposts)}</div>
+                    <div class="x-metric like" title="Like"><span class="ico">❤</span>${fmtCompact(likes)}</div>
+                </div>`;
+        }
+
         function renderActivityMetrics(data) {
             const byDate = data.by_date || [];
             const byWeekday = data.by_weekday || [];
             const byHour = data.by_hour || [];
-            document.getElementById('actTotalMsg').textContent = fmt(data.total_messages || 0);
-            document.getElementById('actParticipants').textContent = fmt(data.participants || 0);
-            document.getElementById('actDays').textContent = fmt(byDate.length);
+            document.getElementById('statLikes').textContent = fmt(data.total_like || 0);
+            document.getElementById('statComments').textContent = fmt(data.total_comment || 0);
+            document.getElementById('statReposts').textContent = fmt(data.total_repost || 0);
             const hourNote = data.has_hour_data ? 'HOUR OK' : 'HOUR N/A';
             document.getElementById('activityMeta').textContent =
-                `${fmt(data.total_messages || 0)} MSGS · ${hourNote}`;
+                `LIKE · COMMENT · REPOST · ${hourNote}`;
+
+            const stackOpts = { ...chartDefaults(), scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } };
+            const stackDatasets = (rows) => [
+                { label: 'Like', data: rows.map(d => d.like || 0), backgroundColor: '#f91880', stack: 'e' },
+                { label: 'Comment', data: rows.map(d => d.comment || 0), backgroundColor: '#1d9bf0', stack: 'e' },
+                { label: 'Repost', data: rows.map(d => d.repost || 0), backgroundColor: '#00ba7c', stack: 'e' },
+            ];
 
             if (activityDayInstance) activityDayInstance.destroy();
             activityDayInstance = new Chart(document.getElementById('activityDayChart').getContext('2d'), {
-                type: 'line',
+                type: 'bar',
                 data: {
                     labels: byDate.map(d => d.date),
-                    datasets: [{
-                        label: 'Messages / Day',
-                        data: byDate.map(d => d.messages || 0),
-                        borderColor: cssVar('--danger'),
-                        backgroundColor: 'rgba(255,107,107,0.12)',
-                        fill: true,
-                        tension: 0.35,
-                        pointRadius: 3,
-                        pointBackgroundColor: cssVar('--danger'),
-                    }]
+                    datasets: stackDatasets(byDate),
                 },
-                options: chartDefaults()
+                options: stackOpts,
             });
 
             if (activityWeekdayInstance) activityWeekdayInstance.destroy();
@@ -2736,14 +2777,9 @@
                 type: 'bar',
                 data: {
                     labels: byWeekday.map(d => (d.day || '').slice(0, 3)),
-                    datasets: [{
-                        label: 'Weekday',
-                        data: byWeekday.map(d => d.messages || 0),
-                        backgroundColor: cssVar('--info'),
-                        borderRadius: 2,
-                    }]
+                    datasets: stackDatasets(byWeekday),
                 },
-                options: { ...chartDefaults(), plugins: { ...chartDefaults().plugins, legend: { display: false } } }
+                options: stackOpts,
             });
 
             if (activityHourInstance) activityHourInstance.destroy();
@@ -2751,14 +2787,9 @@
                 type: 'bar',
                 data: {
                     labels: byHour.map(d => String(d.hour).padStart(2, '0')),
-                    datasets: [{
-                        label: 'Hour',
-                        data: byHour.map(d => d.messages || 0),
-                        backgroundColor: cssVar('--freq-pink'),
-                        borderRadius: 2,
-                    }]
+                    datasets: stackDatasets(byHour),
                 },
-                options: { ...chartDefaults(), plugins: { ...chartDefaults().plugins, legend: { display: false } } }
+                options: stackOpts,
             });
         }
 
@@ -3816,7 +3847,7 @@
                 <div class="post-card-caption">${escapeHtml(p.caption || '(no caption)')}<br></div>
                 <div class="post-card-meta">
                     <span class="post-card-date">${escapeHtml(p.date_text || '—')}</span>
-                    <span class="post-card-intrx">${p.interaction_count} intrx</span>
+                    ${engagementMetricsHtml(p)}
                 </div>
             </div>
         </div>
@@ -3844,7 +3875,7 @@
                 <div class="post-card-caption">${escapeHtml(p.post_url || '—')}</div>
                 <div class="post-card-meta">
                     <span class="post-card-date">${escapeHtml(p.date_text || '—')}</span>
-                    <span class="post-card-intrx">${p.interaction_count} intrx</span>
+                    ${engagementMetricsHtml(p)}
                 </div>
             </div>
         </div>
