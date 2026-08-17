@@ -344,11 +344,12 @@ def _fetch_posts(db_file: str, profile_id: int) -> dict:
     cur.execute(
         """
         SELECT pp.id, pp.photo_url AS url, pp.date_text, pp.caption, pp.image_src,
-               pp.scraped_at, COUNT(pc.id) AS comment_count
+               pp.scraped_at,
+               COALESCE(pp.like_count, 0) AS like_count,
+               COALESCE(pp.reply_count, 0) AS reply_count,
+               COALESCE(pp.repost_count, 0) AS repost_count
         FROM photo_posts pp
-        LEFT JOIN photo_comments pc ON pc.photo_post_id = pp.id
         WHERE pp.profile_id = ?
-        GROUP BY pp.id
         ORDER BY pp.id
         """,
         (profile_id,),
@@ -358,11 +359,12 @@ def _fetch_posts(db_file: str, profile_id: int) -> dict:
     cur.execute(
         """
         SELECT rp.id, rp.reel_url AS url, NULL AS date_text, NULL AS caption,
-               NULL AS image_src, rp.scraped_at, COUNT(rc.id) AS comment_count
+               NULL AS image_src, rp.scraped_at,
+               COALESCE(rp.like_count, 0) AS like_count,
+               COALESCE(rp.reply_count, 0) AS reply_count,
+               COALESCE(rp.repost_count, 0) AS repost_count
         FROM reel_posts rp
-        LEFT JOIN reel_comments rc ON rc.reel_post_id = rp.id
         WHERE rp.profile_id = ?
-        GROUP BY rp.id
         ORDER BY rp.id
         """,
         (profile_id,),
@@ -373,11 +375,11 @@ def _fetch_posts(db_file: str, profile_id: int) -> dict:
         """
         SELECT tp.id, tp.post_url AS url, tp.date_text, NULL AS caption,
                tp.screenshot_path AS image_src, tp.scraped_at,
-               COUNT(tc.id) AS comment_count
+               COALESCE(tp.like_count, 0) AS like_count,
+               COALESCE(tp.reply_count, 0) AS reply_count,
+               COALESCE(tp.repost_count, 0) AS repost_count
         FROM text_posts tp
-        LEFT JOIN text_comments tc ON tc.text_post_id = tp.id
         WHERE tp.profile_id = ?
-        GROUP BY tp.id
         ORDER BY tp.id
         """,
         (profile_id,),
@@ -1343,6 +1345,18 @@ def build_executive_summary(data: dict, S) -> list:
     return story
 
 
+def _engagement_totals(posts: dict) -> dict:
+    like = comment = repost = 0
+    n = 0
+    for bucket in ("photos", "reels", "texts"):
+        for r in posts.get(bucket) or []:
+            n += 1
+            like += int(r.get("like_count") or 0)
+            comment += int(r.get("reply_count") or r.get("comment_count") or 0)
+            repost += int(r.get("repost_count") or 0)
+    return {"posts": n, "like": like, "comment": comment, "repost": repost}
+
+
 def _x_engagement_totals(posts: dict) -> dict:
     texts = posts.get("texts") or []
     return {
@@ -1637,22 +1651,28 @@ def _post_table(title: str, rows: list, S, meaning_key: str | None = None) -> li
     data = [[
         Paragraph("#", S["th"]),
         Paragraph("Date", S["th"]),
-        Paragraph("Comments", S["th"]),
+        Paragraph("Engagement", S["th"]),
         Paragraph("URL / Caption", S["th"]),
     ]]
     for i, r in enumerate(rows, 1):
+        comment_n = int(r.get("reply_count") or r.get("comment_count") or 0)
+        repost_n = int(r.get("repost_count") or 0)
+        like_n = int(r.get("like_count") or 0)
         data.append(
             [
                 Paragraph(str(i), S["td_c"]),
                 Paragraph(_esc(_clip(r.get("date_text") or r.get("scraped_at"), 18)), S["td_c"]),
-                Paragraph(str(r.get("comment_count") or 0), S["td_c"]),
+                Paragraph(
+                    f"Comment {comment_n} · Repost {repost_n} · Like {like_n}",
+                    S["td_c"],
+                ),
                 Paragraph(
                     _esc(_clip((r.get("url") or "") + " — " + (r.get("caption") or ""), 160)),
                     S["td"],
                 ),
             ]
         )
-    t = Table(data, colWidths=[10 * mm, 28 * mm, 18 * mm, 114 * mm])
+    t = Table(data, colWidths=[10 * mm, 28 * mm, 42 * mm, 90 * mm])
     t.setStyle(_table_style())
     out.append(t)
     out.append(Spacer(1, 4 * mm))
@@ -1780,6 +1800,7 @@ def build_x_posts(posts: dict, S) -> list:
 
 
 def build_posts(posts: dict, S) -> list:
+    eng = _engagement_totals(posts)
     story = [
         Paragraph("05 / FULL POST INVENTORY", S["section"]),
     ]
@@ -1789,7 +1810,8 @@ def build_posts(posts: dict, S) -> list:
     story.append(
         Paragraph(
             f"Photos {len(posts['photos'])} · Reels {len(posts['reels'])} · "
-            f"Text {len(posts['texts'])} — every collected item with comment counts.",
+            f"Text {len(posts['texts'])} · Comment {eng['comment']} · "
+            f"Repost {eng['repost']} · Like {eng['like']}",
             S["body"],
         )
     )
@@ -2281,6 +2303,8 @@ def gather_report_data(profile_id: int, db_file: str, platform: str = "facebook"
     }
     if is_x:
         data["engagement"] = _x_engagement_totals(data["posts"])
+    else:
+        data["engagement"] = _engagement_totals(data["posts"])
     if platform == "telegram":
         data.update(_telegram_text_metrics(db_file, profile_id))
         data["executive_summary"] = compose_executive_summary(data)
