@@ -477,12 +477,16 @@ def phase2_scrape_photo(sb, photo_url, idx, total):
     comments = sb.execute_script(f"(function(){{ {SCRAPE_COMMENTS_JS} }})()") or []
     print(f"    [comments] scraped {len(comments)} comments")
 
+    from platforms.facebook.counts_parse import parse_facebook_engagement
+    counts = parse_facebook_engagement(sb.get_page_source())
+
     return {
         'photo_url': photo_url,
         'date':      date,
         'image_src': image_src,
         'caption':   caption,
-        'comments':  comments
+        'comments':  comments,
+        **counts,
     }
 
 
@@ -517,6 +521,7 @@ def main(PROFILE_URL=PROFILE_URL,MAX_PHOTOS=MAX_PHOTOS):
                     'image_src': None,
                     'caption':   None,
                     'comments':  [],
+                    'like_count': 0, 'reply_count': 0, 'repost_count': 0,
                     'error':     str(e)
                 })
             time.sleep(3)

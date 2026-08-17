@@ -182,6 +182,8 @@ def migrate_db(db_file=DB_FILE):
     if 'text_post_id' not in columns:
         cur.execute("ALTER TABLE detected_faces ADD COLUMN text_post_id INTEGER REFERENCES text_posts(id)")
         print("  DB migrated: added text_post_id to detected_faces")
+    from core.counts import ensure_engagement_columns
+    ensure_engagement_columns(con)
     con.commit()
     con.close()
 
@@ -322,6 +324,15 @@ def import_photos(photos_json=PHOTOS_JSON, db_file=DB_FILE, profile_id=None):
             continue
         post_id = row[0]
 
+        from core.counts import as_int
+        cur.execute(
+            '''UPDATE photo_posts
+               SET like_count=?, reply_count=?, repost_count=?
+               WHERE id=?''',
+            (as_int(item.get('like_count')), as_int(item.get('reply_count')),
+             as_int(item.get('repost_count')), post_id),
+        )
+
         for c in item.get("comments", []):
             c_url  = c.get("profile_url", "")
             c_name = c.get("name", "")
@@ -385,6 +396,15 @@ def import_reels(reels_json=REELS_JSON, db_file=DB_FILE, profile_id=None):
         if not row:
             continue
         post_id = row[0]
+
+        from core.counts import as_int
+        cur.execute(
+            '''UPDATE reel_posts
+               SET like_count=?, reply_count=?, repost_count=?
+               WHERE id=?''',
+            (as_int(item.get('like_count')), as_int(item.get('reply_count')),
+             as_int(item.get('repost_count')), post_id),
+        )
 
         for c in item.get("comments", []):
             c_url  = c.get("profile_url", "")
@@ -454,6 +474,15 @@ def import_posts(posts_json=POSTS_JSON, db_file=DB_FILE, profile_id=None):
         if not row:
             continue
         post_id = row[0]
+
+        from core.counts import as_int
+        cur.execute(
+            '''UPDATE text_posts
+               SET like_count=?, reply_count=?, repost_count=?
+               WHERE id=?''',
+            (as_int(item.get('like_count')), as_int(item.get('reply_count')),
+             as_int(item.get('repost_count')), post_id),
+        )
 
         for c in item.get("comments", []):
             c_url  = c.get("profile_url", "")
@@ -646,6 +675,7 @@ def import_all(
             pass
     con.close()
     print(f"\nImport complete → {db_file}")
+    return profile_id
 
 
 if __name__ == "__main__":

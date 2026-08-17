@@ -596,11 +596,15 @@ def phase2_scrape_post(sb, post_url, idx, total):
     comments = sb.execute_script(f"(function(){{ {SCRAPE_COMMENTS_JS} }})()") or []
     print(f"    [comments] {len(comments)} scraped")
 
+    from platforms.facebook.counts_parse import parse_facebook_engagement
+    counts = parse_facebook_engagement(sb.get_page_source())
+
     return {
         'post_url':        post_url,
         'date':            date,
         'screenshot_path': screenshot_path,
-        'comments':        comments
+        'comments':        comments,
+        **counts,
     }
 
 
@@ -634,6 +638,7 @@ def main(profile_url, max_posts=10):
                     'date':            None,
                     'screenshot_path': None,
                     'comments':        [],
+                    'like_count': 0, 'reply_count': 0, 'repost_count': 0,
                     'error':           str(e)
                 })
             time.sleep(3)
