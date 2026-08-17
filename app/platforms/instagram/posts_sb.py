@@ -30,6 +30,7 @@ if os.name != 'nt':
         pass
 
 from platforms.instagram.about_sb import login, _require_cookies, _looks_like_login_page
+from core.counts import as_int
 
 OUTPUT_FILE = "ig_posts.json"
 
@@ -174,13 +175,42 @@ def _comments_from_html(html: str) -> list:
     return comments
 
 
+def _json_int_field(html: str, key: str) -> int:
+    m = re.search(rf'"{re.escape(key)}"\s*:\s*(-?\d+)', html)
+    return as_int(m.group(1)) if m else 0
+
+
+def _edge_count_field(html: str, edge_name: str) -> int:
+    m = re.search(
+        rf'"{re.escape(edge_name)}"\s*:\s*\{{[^}}]*?"count"\s*:\s*(-?\d+)',
+        html,
+    )
+    return as_int(m.group(1)) if m else 0
+
+
+def _engagement_counts_from_html(html: str) -> dict:
+    like = _json_int_field(html, 'like_count') or _edge_count_field(
+        html, 'edge_media_preview_like'
+    )
+    reply = _json_int_field(html, 'comment_count')
+    repost = (
+        _json_int_field(html, 'repost_count')
+        or _json_int_field(html, 'reshare_count')
+    )
+    return {
+        'like_count': like,
+        'reply_count': reply,
+        'repost_count': repost,
+    }
+
+
 def parse_post_from_html(html: str, post_url: str) -> dict:
     """Parse a single post page into the Task 7 ``ig_posts.json`` item shape."""
     if _looks_like_login_page(html):
         raise RuntimeError(
             "Instagram login page detected — cookies missing or session expired."
         )
-    return {
+    result = {
         'post_url': post_url,
         'date': _iso_date_from_html(html),
         'caption': _caption_from_html(html),
@@ -188,6 +218,8 @@ def parse_post_from_html(html: str, post_url: str) -> dict:
         'media_type': _media_type_from_html(html),
         'comments': _comments_from_html(html),
     }
+    result.update(_engagement_counts_from_html(html))
+    return result
 
 
 COLLECT_POSTS_JS = """

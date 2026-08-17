@@ -33,6 +33,7 @@ from platforms.instagram.posts_sb import (
     _iso_date_from_html,
     _caption_from_html,
     _comments_from_html,
+    _engagement_counts_from_html,
 )
 
 OUTPUT_FILE = "ig_reels.json"
@@ -76,12 +77,14 @@ def parse_reel_from_html(html: str, reel_url: str) -> dict:
         raise RuntimeError(
             "Instagram login page detected — cookies missing or session expired."
         )
-    return {
+    result = {
         'reel_url': reel_url,
         'date': _iso_date_from_html(html),
         'caption': _caption_from_html(html),
         'comments': _comments_from_html(html),
     }
+    result.update(_engagement_counts_from_html(html))
+    return result
 
 
 COLLECT_REELS_JS = """

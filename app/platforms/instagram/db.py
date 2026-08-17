@@ -8,6 +8,7 @@ import json
 import os
 
 from platforms.instagram.constants import DB_FILE
+from core.counts import as_int, ensure_engagement_columns
 
 ABOUT_JSON = "ig_about.json"
 POSTS_JSON = "ig_posts.json"
@@ -181,6 +182,7 @@ def init_db(db_file=DB_FILE):
     """Initialize DB schema unconditionally."""
     con = sqlite3.connect(db_file)
     con.executescript(SCHEMA)
+    ensure_engagement_columns(con)
     con.commit()
     con.close()
     print(f"  DB initialized: {db_file}")
@@ -329,6 +331,18 @@ def import_posts(posts_json=POSTS_JSON, db_file=DB_FILE, profile_id=None):
             continue
         post_id = row[0]
 
+        cur.execute(
+            '''UPDATE photo_posts
+               SET like_count=?, reply_count=?, repost_count=?
+               WHERE id=?''',
+            (
+                as_int(item.get('like_count')),
+                as_int(item.get('reply_count') or item.get('comment_count')),
+                as_int(item.get('repost_count')),
+                post_id,
+            ),
+        )
+
         for c in item.get("comments", []):
             c_url = c.get("profile_url", "")
             c_name = c.get("name", "")
@@ -392,6 +406,18 @@ def import_reels(reels_json=REELS_JSON, db_file=DB_FILE, profile_id=None):
         if not row:
             continue
         post_id = row[0]
+
+        cur.execute(
+            '''UPDATE reel_posts
+               SET like_count=?, reply_count=?, repost_count=?
+               WHERE id=?''',
+            (
+                as_int(item.get('like_count')),
+                as_int(item.get('reply_count') or item.get('comment_count')),
+                as_int(item.get('repost_count')),
+                post_id,
+            ),
+        )
 
         for c in item.get("comments", []):
             c_url = c.get("profile_url", "")
