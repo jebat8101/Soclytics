@@ -24,6 +24,7 @@ from platforms.reddit.db import import_all, compute_frequency, extract_top7
 from platforms.reddit.about_sb import main as scrape_about
 from platforms.reddit.submissions_sb import main as scrape_submissions
 
+from core.engagement_metrics import get_activity_metrics
 from core.pipeline import make_pipeline_state, reset_pipeline, set_step, finish_pipeline
 from core.report_routes import register_report_routes
 from core.scoring import (
@@ -235,6 +236,16 @@ def get_investigations():
                 (SELECT COUNT(*) FROM photo_posts WHERE profile_id = p.id) +
                 (SELECT COUNT(*) FROM reel_posts  WHERE profile_id = p.id) +
                 (SELECT COUNT(*) FROM text_posts  WHERE profile_id = p.id) AS post_count,
+
+                (SELECT COALESCE(SUM(like_count),0) FROM photo_posts WHERE profile_id=p.id)
+                + (SELECT COALESCE(SUM(like_count),0) FROM reel_posts WHERE profile_id=p.id)
+                + (SELECT COALESCE(SUM(like_count),0) FROM text_posts WHERE profile_id=p.id) AS like_count,
+                (SELECT COALESCE(SUM(reply_count),0) FROM photo_posts WHERE profile_id=p.id)
+                + (SELECT COALESCE(SUM(reply_count),0) FROM reel_posts WHERE profile_id=p.id)
+                + (SELECT COALESCE(SUM(reply_count),0) FROM text_posts WHERE profile_id=p.id) AS reply_count,
+                (SELECT COALESCE(SUM(repost_count),0) FROM photo_posts WHERE profile_id=p.id)
+                + (SELECT COALESCE(SUM(repost_count),0) FROM reel_posts WHERE profile_id=p.id)
+                + (SELECT COALESCE(SUM(repost_count),0) FROM text_posts WHERE profile_id=p.id) AS repost_count,
                 (SELECT COUNT(DISTINCT commentor_id) FROM commentor_frequency
                  WHERE profile_id = p.id) AS interactor_count,
                 0 AS face_count
@@ -251,6 +262,9 @@ def get_investigations():
                 'is_locked':        bool(r['is_locked']),
                 'scraped_at':       r['scraped_at'] or '',
                 'post_count':       r['post_count'] or 0,
+                'like_count':       r['like_count'] or 0,
+                'reply_count':      r['reply_count'] or 0,
+                'repost_count':     r['repost_count'] or 0,
                 'interactor_count': r['interactor_count'] or 0,
                 'face_count':       0,
             }
@@ -548,6 +562,14 @@ def api_timeline(profile_id):
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 
+
+@reddit_bp.route('/api/activity-metrics/<int:profile_id>')
+def api_activity_metrics(profile_id):
+    try:
+        return jsonify({'ok': True, 'data': get_activity_metrics(DB_FILE, profile_id)})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
 @reddit_bp.route('/api/post-type-counts/<int:profile_id>')
 def api_post_type_counts(profile_id):
     try:
@@ -605,7 +627,10 @@ def api_photo_posts(profile_id):
         cur.execute("""
             SELECT
                 pp.id, pp.photo_url, pp.image_src, pp.caption, pp.date_text,
-                COUNT(pc.id) AS interaction_count
+                COUNT(pc.id) AS interaction_count,
+                COALESCE(pp.like_count, 0) AS like_count,
+                COALESCE(pp.reply_count, 0) AS reply_count,
+                COALESCE(pp.repost_count, 0) AS repost_count
             FROM photo_posts pp
             LEFT JOIN photo_comments pc ON pc.photo_post_id = pp.id
             WHERE pp.profile_id = ?
@@ -630,7 +655,10 @@ def api_text_posts(profile_id):
             SELECT
                 tp.id, tp.post_url, tp.screenshot_path, tp.date_text,
                 tp.title, tp.subreddit, tp.body,
-                COUNT(tc.id) AS interaction_count
+                COUNT(tc.id) AS interaction_count,
+                COALESCE(tp.like_count, 0) AS like_count,
+                COALESCE(tp.reply_count, 0) AS reply_count,
+                COALESCE(tp.repost_count, 0) AS repost_count
             FROM text_posts tp
             LEFT JOIN text_comments tc ON tc.text_post_id = tp.id
             WHERE tp.profile_id = ?
@@ -654,7 +682,10 @@ def api_reel_posts(profile_id):
         cur.execute("""
             SELECT
                 rp.id, rp.reel_url, rp.scraped_at,
-                COUNT(rc.id) AS interaction_count
+                COUNT(rc.id) AS interaction_count,
+                COALESCE(rp.like_count, 0) AS like_count,
+                COALESCE(rp.reply_count, 0) AS reply_count,
+                COALESCE(rp.repost_count, 0) AS repost_count
             FROM reel_posts rp
             LEFT JOIN reel_comments rc ON rc.reel_post_id = rp.id
             WHERE rp.profile_id = ?

@@ -14,6 +14,7 @@ from core.browser import (
     save_cookies_pickle,
 )
 from core.paths import safe_under
+from core.engagement_metrics import get_activity_metrics
 from core.pipeline import finish_pipeline, make_pipeline_state, reset_pipeline, set_step
 from core.report_routes import register_report_routes
 from core.scoring import (
@@ -558,6 +559,14 @@ def api_timeline(profile_id):
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+@x_bp.route('/api/activity-metrics/<int:profile_id>')
+def api_activity_metrics(profile_id):
+    try:
+        return jsonify({'ok': True, 'data': get_activity_metrics(DB_FILE, profile_id)})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 @x_bp.route('/api/post-type-counts/<int:profile_id>')
 def api_post_type_counts(profile_id):
     try:
@@ -656,7 +665,7 @@ def api_photo_posts(profile_id):
         cur.execute(
             """
             SELECT id, post_url AS photo_url, date_text, image_src, body AS caption,
-                   like_count, reply_count, repost_count, view_count
+                   COALESCE(like_count, 0) AS like_count, COALESCE(reply_count, 0) AS reply_count, COALESCE(repost_count, 0) AS repost_count, view_count
             FROM text_posts
             WHERE profile_id = ? AND COALESCE(media_type, 'text') IN ('image', 'video')
             ORDER BY id DESC
@@ -681,7 +690,7 @@ def api_text_posts(profile_id):
         cur.execute(
             """
             SELECT id, post_url, date_text, body, media_type, image_src,
-                   like_count, reply_count, repost_count, view_count
+                   COALESCE(like_count, 0) AS like_count, COALESCE(reply_count, 0) AS reply_count, COALESCE(repost_count, 0) AS repost_count, view_count
             FROM text_posts
             WHERE profile_id = ?
             ORDER BY id DESC
@@ -706,7 +715,7 @@ def api_reel_posts(profile_id):
         cur.execute(
             """
             SELECT id, post_url AS reel_url, date_text, image_src, body AS caption,
-                   like_count, reply_count, repost_count, view_count
+                   COALESCE(like_count, 0) AS like_count, COALESCE(reply_count, 0) AS reply_count, COALESCE(repost_count, 0) AS repost_count, view_count
             FROM text_posts
             WHERE profile_id = ? AND COALESCE(media_type, 'text') = 'video'
             ORDER BY id DESC

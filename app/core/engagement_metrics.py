@@ -14,12 +14,23 @@ def _table_names(cur):
     return {r[0] for r in cur.fetchall()}
 
 
+def _date_column(cur, table):
+    cur.execute(f'PRAGMA table_info({table})')
+    cols = {row[1] for row in cur.fetchall()}
+    if 'date_text' in cols:
+        return 'date_text'
+    if 'scraped_at' in cols:
+        return 'scraped_at'
+    return "''"
+
+
 def _fetch_rows(cur, tables, profile_id):
     rows = []
     for table in tables:
+        date_col = _date_column(cur, table)
         cur.execute(
             f'''
-            SELECT date_text,
+            SELECT {date_col},
                    COALESCE(like_count, 0),
                    COALESCE(reply_count, 0),
                    COALESCE(repost_count, 0)

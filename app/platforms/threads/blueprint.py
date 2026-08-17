@@ -15,6 +15,7 @@ from core.browser import (
     save_cookies_pickle,
 )
 from core.paths import safe_under
+from core.engagement_metrics import get_activity_metrics
 from core.pipeline import finish_pipeline, make_pipeline_state, reset_pipeline, set_step
 from core.report_routes import register_report_routes
 from core.scoring import (
@@ -218,6 +219,9 @@ def get_investigations():
             SELECT
                 p.id, p.profile_url, p.owner_name, p.is_locked, p.scraped_at,
                 (SELECT COUNT(*) FROM text_posts WHERE profile_id = p.id) AS post_count,
+                (SELECT COALESCE(SUM(like_count),0) FROM text_posts WHERE profile_id=p.id) AS like_count,
+                (SELECT COALESCE(SUM(reply_count),0) FROM text_posts WHERE profile_id=p.id) AS reply_count,
+                (SELECT COALESCE(SUM(repost_count),0) FROM text_posts WHERE profile_id=p.id) AS repost_count,
                 (SELECT COUNT(DISTINCT commentor_id) FROM commentor_frequency
                  WHERE profile_id = p.id) AS interactor_count,
                 (SELECT COUNT(*) FROM detected_faces df
@@ -240,6 +244,9 @@ def get_investigations():
                     'is_locked': bool(r['is_locked']),
                     'scraped_at': r['scraped_at'] or '',
                     'post_count': r['post_count'] or 0,
+                    'like_count': r['like_count'] or 0,
+                    'reply_count': r['reply_count'] or 0,
+                    'repost_count': r['repost_count'] or 0,
                     'interactor_count': r['interactor_count'] or 0,
                     'face_count': r['face_count'] or 0,
                 }
@@ -676,6 +683,14 @@ def api_timeline(profile_id):
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+@threads_bp.route('/api/activity-metrics/<int:profile_id>')
+def api_activity_metrics(profile_id):
+    try:
+        return jsonify({'ok': True, 'data': get_activity_metrics(DB_FILE, profile_id)})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 @threads_bp.route('/api/post-type-counts/<int:profile_id>')
 def api_post_type_counts(profile_id):
     try:
@@ -753,7 +768,10 @@ def api_photo_posts(profile_id):
         cur = con.cursor()
         cur.execute(
             """
-            SELECT id, post_url AS photo_url, date_text, image_src, body AS caption
+            SELECT id, post_url AS photo_url, date_text, image_src, body AS caption,
+                   COALESCE(like_count, 0) AS like_count,
+                   COALESCE(reply_count, 0) AS reply_count,
+                   COALESCE(repost_count, 0) AS repost_count
             FROM text_posts
             WHERE profile_id = ? AND COALESCE(media_type, 'text') IN ('image', 'video')
             ORDER BY id DESC
@@ -777,7 +795,10 @@ def api_text_posts(profile_id):
         cur = con.cursor()
         cur.execute(
             """
-            SELECT id, post_url, date_text, body, media_type, image_src
+            SELECT id, post_url, date_text, body, media_type, image_src,
+                   COALESCE(like_count, 0) AS like_count,
+                   COALESCE(reply_count, 0) AS reply_count,
+                   COALESCE(repost_count, 0) AS repost_count
             FROM text_posts
             WHERE profile_id = ?
             ORDER BY id DESC
@@ -801,7 +822,10 @@ def api_reel_posts(profile_id):
         cur = con.cursor()
         cur.execute(
             """
-            SELECT id, post_url AS reel_url, date_text, image_src, body AS caption
+            SELECT id, post_url AS reel_url, date_text, image_src, body AS caption,
+                   COALESCE(like_count, 0) AS like_count,
+                   COALESCE(reply_count, 0) AS reply_count,
+                   COALESCE(repost_count, 0) AS repost_count
             FROM text_posts
             WHERE profile_id = ? AND COALESCE(media_type, 'text') = 'video'
             ORDER BY id DESC
