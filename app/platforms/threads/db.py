@@ -7,6 +7,7 @@ import json
 import os
 import sqlite3
 
+from core.counts import as_int, ensure_engagement_columns
 from platforms.threads.constants import DB_FILE
 
 ABOUT_JSON = 'threads_about.json'
@@ -199,6 +200,7 @@ CREATE TABLE IF NOT EXISTS detected_faces (
 def init_db(db_file=DB_FILE):
     con = sqlite3.connect(db_file)
     con.executescript(SCHEMA)
+    ensure_engagement_columns(con)
     con.commit()
     con.close()
     print(f'  DB initialized: {db_file}')
@@ -272,6 +274,7 @@ def import_about(about_json=ABOUT_JSON, db_file=DB_FILE, expected_profile_url=No
     con = sqlite3.connect(db_file)
     cur = con.cursor()
     cur.executescript(SCHEMA)
+    ensure_engagement_columns(con)
     profile_id = get_or_create_profile(cur, profile_url, owner_name, is_locked)
     cur.execute('DELETE FROM profile_fields WHERE profile_id = ?', (profile_id,))
 
@@ -312,6 +315,7 @@ def import_posts(posts_json=POSTS_JSON, db_file=DB_FILE, profile_id=None):
     con = sqlite3.connect(db_file)
     cur = con.cursor()
     cur.executescript(SCHEMA)
+    ensure_engagement_columns(con)
     if not profile_id:
         print('  No profile_id - skipping posts')
         con.close()
@@ -362,6 +366,17 @@ def import_posts(posts_json=POSTS_JSON, db_file=DB_FILE, profile_id=None):
         photo_post_id = cur.fetchone()[0]
         cur.execute('SELECT id FROM text_posts WHERE post_url = ?', (post_url,))
         text_post_id = cur.fetchone()[0]
+        cur.execute(
+            '''UPDATE text_posts
+               SET like_count=?, reply_count=?, repost_count=?
+               WHERE id=?''',
+            (
+                as_int(item.get('like_count')),
+                as_int(item.get('reply_count')),
+                as_int(item.get('repost_count')),
+                text_post_id,
+            ),
+        )
         cur.execute('SELECT id FROM reel_posts WHERE reel_url = ?', (post_url,))
         reel_post_id = cur.fetchone()[0]
 

@@ -5,6 +5,9 @@
     "caption": "hello world",
     "image_src": "https://cdn.example/img.jpg",
     "media_type": "image",
+    "like_count": 12,
+    "reply_count": 5,
+    "repost_count": 3,
     "replies": [
       {
         "name": "alice",
