@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 
 import requests
 
+from core.counts import as_int, parse_compact_int
 from core.urls import extract_telegram_username, normalize_telegram_target
 
 from platforms.telegram.constants import (
@@ -257,6 +258,27 @@ def _message_engagement(msg) -> dict:
         "reply_count": getattr(getattr(msg, "replies", None), "replies", None),
         "reactions": reactions or None,
     }
+
+
+def _engagement_to_counts(eng: dict) -> dict:
+    reactions = eng.get("reactions")
+    if isinstance(reactions, (int, float)):
+        like_count = int(reactions) if reactions else 0
+    elif reactions:
+        like_count = sum(
+            v for v in (parse_compact_int(part) for part in str(reactions).split())
+            if v is not None
+        )
+    else:
+        like_count = 0
+    return {
+        "like_count": like_count,
+        "repost_count": as_int(eng.get("forwards")),
+        "reply_count": as_int(eng.get("reply_count")),
+    }
+
+
+_ZERO_COUNTS = {"like_count": 0, "reply_count": 0, "repost_count": 0}
 
 
 def _media_kind(msg) -> str:
@@ -630,7 +652,9 @@ async def _channel_items(client, entity, username, profile_url, messages,
 
         post_url = f"https://t.me/{username}/{msg.id}"
         date = msg.date.strftime("%Y-%m-%d") if msg.date else None
-        caption = _engagement_caption(text, _message_engagement(msg))
+        eng = _message_engagement(msg)
+        counts = _engagement_to_counts(eng)
+        caption = _engagement_caption(text, eng)
 
         path = None
         if _has_room(kind, photos, reels, max_photos, max_reels):
@@ -638,14 +662,14 @@ async def _channel_items(client, entity, username, profile_url, messages,
 
         if path and kind == "photo" and len(photos) < max_photos:
             photos.append({"photo_url": post_url, "date": date, "image_src": path,
-                           "caption": caption, "comments": comments})
+                           "caption": caption, "comments": comments, **counts})
         elif path and kind == "reel" and len(reels) < max_reels:
             reels.append({"reel_url": post_url, "date": date, "image_src": path,
-                          "caption": caption, "comments": comments})
+                          "caption": caption, "comments": comments, **counts})
         elif len(posts) < max_posts:
             posts.append({"post_url": post_url, "date": date,
                           "screenshot_path": _write_caption_txt(f"{username}_{msg.id}", caption),
-                          "comments": comments})
+                          "comments": comments, **counts})
 
     return photos, reels, posts
 
@@ -701,11 +725,14 @@ async def _group_items(client, entity, username, profile_url, messages,
                     comments.append({**ident, "comment_text": text or "[media]",
                                      "interaction_type": "message"})
                 comments = _dedupe_comments(comments + replies + extras)[:MAX_COMMENTS_PER_POST]
+                eng = _message_engagement(msg)
+                counts = _engagement_to_counts(eng)
                 item = {
                     "date": date,
                     "image_src": path,
-                    "caption": _engagement_caption(text, _message_engagement(msg)),
+                    "caption": _engagement_caption(text, eng),
                     "comments": comments,
+                    **counts,
                 }
                 url = f"https://t.me/{username}/{msg.id}"
                 if kind == "photo" and len(photos) < max_photos:
@@ -740,6 +767,7 @@ async def _group_items(client, entity, username, profile_url, messages,
             "date": date,
             "screenshot_path": _write_caption_txt(f"{username}_{date}", body or date),
             "comments": comments,
+            **_ZERO_COUNTS,
         })
     if posts:
         print(f"   Day threads: {len(posts)} of {len(by_day)} active days")
@@ -917,8 +945,14 @@ def _preview_message(node, username) -> dict | None:
     reaction_nodes = node.select("span.tgme_widget_message_reactions_count") or node.select(
         "span.tgme_reactions_count"
     )
+    like_count = 0
     if reaction_nodes:
-        eng["reactions"] = " ".join(n.get_text(strip=True) for n in reaction_nodes if n.get_text(strip=True))
+        reaction_texts = [n.get_text(strip=True) for n in reaction_nodes if n.get_text(strip=True)]
+        eng["reactions"] = " ".join(reaction_texts)
+        for text in reaction_texts:
+            parsed = parse_compact_int(text)
+            if parsed is not None:
+                like_count += parsed
 
     image_url = None
     bucket = "text"
@@ -974,6 +1008,9 @@ def _preview_message(node, username) -> dict | None:
         "image_url": image_url,
         "bucket": bucket,
         "comments": comments,
+        "like_count": like_count,
+        "reply_count": 0,
+        "repost_count": 0,
     }
 
 
@@ -1034,6 +1071,9 @@ def _public_collect(username, profile_url, max_posts, max_photos, max_reels):
                 "image_src": _download_file(item["image_url"], dest),
                 "caption": item["caption"],
                 "comments": item["comments"],
+                "like_count": item.get("like_count", 0),
+                "reply_count": item.get("reply_count", 0),
+                "repost_count": item.get("repost_count", 0),
             })
         elif item["bucket"] == "reel" and len(reels) < max_reels:
             dest = os.path.join(MEDIA_DIR, f"telegram_{_safe(username)}_{item['id']}.jpg")
@@ -1043,6 +1083,9 @@ def _public_collect(username, profile_url, max_posts, max_photos, max_reels):
                 "image_src": _download_file(item["image_url"], dest),
                 "caption": item["caption"],
                 "comments": item["comments"],
+                "like_count": item.get("like_count", 0),
+                "reply_count": item.get("reply_count", 0),
+                "repost_count": item.get("repost_count", 0),
             })
         elif len(posts) < max_posts and item["caption"]:
             posts.append({
@@ -1050,6 +1093,9 @@ def _public_collect(username, profile_url, max_posts, max_photos, max_reels):
                 "date": item["date"],
                 "screenshot_path": _write_caption_txt(f"{username}_{item['id']}", item["caption"]),
                 "comments": item["comments"],
+                "like_count": item.get("like_count", 0),
+                "reply_count": item.get("reply_count", 0),
+                "repost_count": item.get("repost_count", 0),
             })
 
     return about, photos, reels, posts
