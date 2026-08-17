@@ -169,6 +169,7 @@ def parse_submissions_list_from_html(html: str, max_posts: int = 10) -> list:
             if scm:
                 score = int(scm.group(1))
 
+        comments = []
         items.append({
             'post_url': permalink,
             'title': title,
@@ -176,7 +177,10 @@ def parse_submissions_list_from_html(html: str, max_posts: int = 10) -> list:
             'date': _date_from_fragment(frag),
             'body': _body_from_thing(frag),
             'score': score,
-            'comments': [],
+            'comments': comments,
+            'like_count': score or 0,
+            'reply_count': len(comments),
+            'repost_count': 0,
         })
         if len(items) >= max_posts:
             break
@@ -270,6 +274,7 @@ def parse_submission_page_from_html(html: str, post_url: str) -> dict:
     if body is None:
         body = _body_from_thing(html)
 
+    comments = parse_comments_from_html(html)
     return {
         'post_url': post_url,
         'title': title,
@@ -277,7 +282,10 @@ def parse_submission_page_from_html(html: str, post_url: str) -> dict:
         'date': _date_from_fragment(html),
         'body': body,
         'score': score,
-        'comments': parse_comments_from_html(html),
+        'comments': comments,
+        'like_count': score or 0,
+        'reply_count': len(comments),
+        'repost_count': 0,
     }
 
 
@@ -327,16 +335,24 @@ def phase2_scrape_comments(sb, item: dict, idx: int, total: int) -> dict:
         item = dict(item)
         item['comments'] = []
         item['error'] = str(e)
+        item['like_count'] = item.get('score') or 0
+        item['reply_count'] = 0
+        item['repost_count'] = 0
         return item
 
+    comments = parsed.get('comments') or []
+    score = parsed.get('score') if parsed.get('score') is not None else item.get('score')
     out = {
         'post_url': post_url,
         'title': parsed.get('title') or item.get('title'),
         'subreddit': parsed.get('subreddit') or item.get('subreddit'),
         'date': parsed.get('date') or item.get('date'),
         'body': parsed.get('body') if parsed.get('body') is not None else item.get('body'),
-        'score': parsed.get('score') if parsed.get('score') is not None else item.get('score'),
-        'comments': parsed.get('comments') or [],
+        'score': score,
+        'comments': comments,
+        'like_count': score or 0,
+        'reply_count': len(comments),
+        'repost_count': 0,
     }
     print(f"    title   : {(out.get('title') or '')[:60]}")
     print(f"    comments: {len(out.get('comments') or [])}")
@@ -373,6 +389,9 @@ def main(PROFILE_URL: str, MAX_POSTS: int = 10):
                 err = dict(item)
                 err['comments'] = err.get('comments') or []
                 err['error'] = str(e)
+                err['like_count'] = err.get('score') or 0
+                err['reply_count'] = len(err['comments'])
+                err['repost_count'] = 0
                 results.append(err)
             time.sleep(2)
 

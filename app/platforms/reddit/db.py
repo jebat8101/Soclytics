@@ -7,6 +7,7 @@ import sqlite3
 import json
 import os
 
+from core.counts import as_int, ensure_engagement_columns
 from platforms.reddit.constants import DB_FILE
 
 ABOUT_JSON = "reddit_about.json"
@@ -186,6 +187,7 @@ def init_db(db_file=DB_FILE):
     cur = con.cursor()
     cur.executescript(SCHEMA)
     _ensure_text_post_columns(cur)
+    ensure_engagement_columns(con)
     con.commit()
     con.close()
     print(f"  DB initialized: {db_file}")
@@ -259,6 +261,7 @@ def import_about(about_json=ABOUT_JSON, db_file=DB_FILE, expected_profile_url=No
     cur = con.cursor()
     cur.executescript(SCHEMA)
     _ensure_text_post_columns(cur)
+    ensure_engagement_columns(con)
 
     profile_id = get_or_create_profile(cur, profile_url, owner_name, is_locked)
 
@@ -300,6 +303,7 @@ def import_submissions(submissions_json=SUBMISSIONS_JSON, db_file=DB_FILE, profi
     cur = con.cursor()
     cur.executescript(SCHEMA)
     _ensure_text_post_columns(cur)
+    ensure_engagement_columns(con)
 
     if not profile_id:
         print("  No profile_id — skipping submissions")
@@ -350,6 +354,22 @@ def import_submissions(submissions_json=SUBMISSIONS_JSON, db_file=DB_FILE, profi
         if not row:
             continue
         post_id = row[0]
+
+        if 'reply_count' in item:
+            reply_count = as_int(item.get('reply_count'))
+        else:
+            reply_count = len(item.get('comments') or [])
+        cur.execute(
+            '''UPDATE text_posts
+               SET like_count=?, reply_count=?, repost_count=?
+               WHERE id=?''',
+            (
+                as_int(item.get('like_count') or item.get('score')),
+                reply_count,
+                0,
+                post_id,
+            ),
+        )
 
         for c in item.get("comments", []):
             c_url = c.get("profile_url", "")
