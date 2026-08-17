@@ -12,9 +12,9 @@
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)]()
 [![LLM](https://img.shields.io/badge/LLM%20Required-None-brightgreen?style=flat-square)]()
 
-**Local-first multi-platform SOCMINT — Facebook, Instagram, Reddit, Threads, and Telegram. No LLM, no cloud dependency. Docker is the recommended install. For the AI-powered version see [birdy-edwards](https://github.com/jeet-ganguly/birdy-edwards).**
+**Local-first multi-platform SOCMINT — Facebook, Instagram, Reddit, and Threads. No LLM, no Docker, no cloud dependency. For the AI-powered version see [birdy-edwards](https://github.com/jeet-ganguly/birdy-edwards).**
 
-[Installation](#installation-docker) · [Platforms](#platforms--mini-apps) · [Features](#features) · [Troubleshooting](#troubleshooting) · [Disclaimer](#️-disclaimer) · [Contributing](#contributing)
+[Installation](#installation) · [Platforms](#platforms--mini-apps) · [Features](#features) · [Troubleshooting](#troubleshooting) · [Disclaimer](#️-disclaimer) · [Contributing](#contributing)
 
 </div>
 
@@ -22,9 +22,9 @@
 
 ## What is Soclytics?
 
-Soclytics is a local-first, dependency-light multi-platform SOCMINT platform. It runs four separate mini-apps — **Facebook**, **Instagram**, **Reddit**, and **Threads** — each with its own cookies, database, and investigation history.
+Soclytics is a local-first, dependency-light multi-platform SOCMINT platform. It runs six separate mini-apps — **Facebook**, **Instagram**, **Reddit**, **Threads**, **Telegram**, and **X** — each with its own cookies, database, and investigation history.
 
-Each platform performs the same core workflow — data gathering, interaction mapping, network visualization, and (where applicable) face clustering — without requiring any AI model or cloud service.
+Each platform performs the same core workflow — data gathering, interaction mapping, network visualization, and (where applicable) face clustering — without requiring any AI model, Docker container, or cloud service.
 
 Everything runs on your local machine. No GPU required. No model downloads. No official platform APIs.
 
@@ -136,7 +136,7 @@ Auth is operator cookies + SeleniumBase only (no Graph API / no `praw`).
 | World map visualization | ❌ | ✅ |
 | PDF intelligence report | ✅ | ✅ |
 | JSON report export | ✅ | ✅ |
-| Docker deployment | ✅ | ✅ |
+| Docker deployment | ❌ | ✅ |
 | LLM required | ❌ None | ✅ Ollama |
 | GPU required | ❌ | ✅ Recommended |
 
@@ -156,61 +156,13 @@ Auth is operator cookies + SeleniumBase only (no Graph API / no `praw`).
 
 ---
 
-## Installation (Docker)
-
-Recommended. Host port **5002**. First build compiles dlib and takes several minutes.
+## Installation
 
 ### Step 1 — Clone the repository
 
 ```bash
-git clone http://gitlab.eclab.net/osint/birdy-edwards-lite-v2.git
-cd birdy-edwards-lite-v2
-```
-
-### Step 2 — Configure
-
-```bash
-cp .env.example .env
-```
-
-`.env` already sets `PORT=5002`. Optional Telegram MTProto keys (`TG_API_ID`, `TG_API_HASH` from https://my.telegram.org). Public channel preview works without them.
-
-### Step 3 — Start the container
-
-```bash
-chmod +x run-docker.sh
-./run-docker.sh
-```
-
-Creates cookie/db placeholders, then `docker compose up --build -d`. Re-run anytime to rebuild/restart.
-
-```bash
-docker compose logs -f       # follow logs
-docker compose down          # stop
-./run-docker.sh --update     # git pull + rebuild
-```
-
-### Step 4 — Open the web UI
-
-```
-http://localhost:5002          → redirects to /facebook
-http://localhost:5002/facebook
-http://localhost:5002/instagram
-http://localhost:5002/reddit
-http://localhost:5002/threads
-http://localhost:5002/telegram
-http://localhost:5002/x
-```
-
-## Installation (local venv)
-
-Use this if you cannot run Docker.
-
-### Step 1 — Clone the repository
-
-```bash
-git clone http://gitlab.eclab.net/osint/birdy-edwards-lite-v2.git
-cd birdy-edwards-lite-v2
+git clone https://github.com/jeet-ganguly/birdy-edwards-lite.git
+cd birdy-edwards-lite
 ```
 
 ### Step 2 — Run the setup script
@@ -251,6 +203,7 @@ http://localhost:5000/reddit
 http://localhost:5000/threads
 http://localhost:5000/telegram
 ```
+
 ---
 
 ## Session Setup (cookies)
@@ -300,7 +253,7 @@ export TG_API_HASH=abcdef...
 python3 scripts/telegram-login.py
 ```
 
-Then open **http://localhost:5002/telegram** (Docker) or **http://localhost:5000/telegram** (local venv), paste `t.me/channel` or `@name`, pick depth, and **LAUNCH**.
+Then open **http://localhost:5000/telegram**, paste `t.me/channel` or `@name`, pick depth, and **LAUNCH**.
 
 ---
 
@@ -384,11 +337,8 @@ Your cookies have likely expired. Re-export from Cookie-Editor on the correct do
 **No faces detected (Facebook / Instagram)**
 CDN URLs expire. Face clustering only works immediately after a fresh pipeline run while image URLs are still valid. Reddit has no face step.
 
-**Port 5000 already in use (local venv)**
-Set `PORT=5001` or edit `app.py` to use another port, then access at `http://localhost:5001`.
-
-**Docker host port already in use**
-Change `PORT` in `.env` (default `5002`) and re-run `./run-docker.sh`.
+**Port 5000 already in use**
+Edit `app.py` final line: change `port=5000` to `port=5001` then access at `http://localhost:5001`.
 
 **DB error: no such table**
 Delete the investigation from the home page and start a new one. The schema is created automatically on first use. Databases are `socmint_fb.db`, `socmint_ig.db`, and `socmint_reddit.db`.
