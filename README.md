@@ -1,4 +1,4 @@
-# Soclytics (Birdy-Edwards Lite v2)
+# Soclytics
 
 Local-first multi-platform SOCMINT — Facebook, Instagram, Reddit, Threads, Telegram. No LLM required.
 
