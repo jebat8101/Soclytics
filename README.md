@@ -13,8 +13,8 @@ Local-first multi-platform SOCMINT — Facebook, Instagram, Reddit, Threads, Tel
 ## 1. Clone
 
 ```bash
-git clone http://gitlab.eclab.net/osint/birdy-edwards-lite-v2.git
-cd birdy-edwards-lite-v2
+git clone https://github.com/jebat8101/Soclytics.git
+cd Soclytics.git
 ```
 
 ## 2. Configure
