@@ -771,7 +771,8 @@ def api_photo_posts(profile_id):
             SELECT id, post_url AS photo_url, date_text, image_src, body AS caption,
                    COALESCE(like_count, 0) AS like_count,
                    COALESCE(reply_count, 0) AS reply_count,
-                   COALESCE(repost_count, 0) AS repost_count
+                   COALESCE(repost_count, 0) AS repost_count,
+                   COALESCE(source_tab, 'threads') AS source_tab
             FROM text_posts
             WHERE profile_id = ? AND COALESCE(media_type, 'text') IN ('image', 'video')
             ORDER BY id DESC
@@ -798,7 +799,8 @@ def api_text_posts(profile_id):
             SELECT id, post_url, date_text, body, media_type, image_src,
                    COALESCE(like_count, 0) AS like_count,
                    COALESCE(reply_count, 0) AS reply_count,
-                   COALESCE(repost_count, 0) AS repost_count
+                   COALESCE(repost_count, 0) AS repost_count,
+                   COALESCE(source_tab, 'threads') AS source_tab
             FROM text_posts
             WHERE profile_id = ?
             ORDER BY id DESC
@@ -825,7 +827,8 @@ def api_reel_posts(profile_id):
             SELECT id, post_url AS reel_url, date_text, image_src, body AS caption,
                    COALESCE(like_count, 0) AS like_count,
                    COALESCE(reply_count, 0) AS reply_count,
-                   COALESCE(repost_count, 0) AS repost_count
+                   COALESCE(repost_count, 0) AS repost_count,
+                   COALESCE(source_tab, 'threads') AS source_tab
             FROM text_posts
             WHERE profile_id = ? AND COALESCE(media_type, 'text') = 'video'
             ORDER BY id DESC

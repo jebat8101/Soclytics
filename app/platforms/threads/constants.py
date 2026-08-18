@@ -11,12 +11,12 @@ FACE_DIR = os.path.join(BASE_DIR, 'face_data_threads')
 DEPTH_LIMITS = {
     'light': {'posts': 5},
     'medium': {'posts': 10},
-    'deep': {'posts': 20},
+    'deep': {'posts': None},
 }
 
 PIPELINE_STEPS = [
     {'id': 'about', 'label': 'Scraping - Profile'},
-    {'id': 'posts', 'label': 'Scraping - Threads + Engagements'},
+    {'id': 'posts', 'label': 'Scraping - Threads / Replies / Media / Reposts'},
     {'id': 'db', 'label': 'Database Import'},
     {'id': 'frequency', 'label': 'Frequency Scoring'},
     {'id': 'top7', 'label': 'Top 7 Metadata Gather'},

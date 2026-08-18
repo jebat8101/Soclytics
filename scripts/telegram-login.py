@@ -99,7 +99,7 @@ def main() -> int:
     print(f"Session  → {placeholder}")
     print(f"Config   → {args.config}")
     print("\nBoth are mounted into the container. Start it with:")
-    print("  docker compose up -d birdy-lite")
+    print("  ./run-docker.sh")
     return 0
 
 

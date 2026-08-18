@@ -1801,6 +1801,89 @@
             font-weight: 700;
         }
 
+        /* ===== X-STYLE POST FEED ===== */
+        .x-feed {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            background: var(--bg-elev);
+        }
+
+        .x-tweet {
+            display: grid;
+            grid-template-columns: 48px 1fr;
+            gap: 12px;
+            padding: 14px 16px 10px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.12s;
+        }
+
+        .x-tweet:last-child {
+            border-bottom: none;
+        }
+
+        .x-tweet:hover {
+            background: var(--bg-hover);
+        }
+
+        .x-tweet-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--accent-glow);
+            border: 1px solid var(--accent-dim);
+            color: var(--accent);
+            font-weight: 900;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .x-tweet-head {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 4px;
+        }
+
+        .x-tweet-name {
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--text);
+        }
+
+        .x-tweet-handle,
+        .x-tweet-date {
+            font-size: 13px;
+            color: var(--text-faint);
+            font-weight: 600;
+        }
+
+        .x-tweet-body {
+            font-size: 15px;
+            line-height: 1.45;
+            color: var(--text);
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin: 0 0 10px;
+        }
+
+        .x-tweet-media {
+            width: 100%;
+            max-height: 280px;
+            object-fit: cover;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 10px;
+            background: var(--bg-card);
+        }
+
         .x-metrics {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2103,7 +2186,7 @@
                 <div class="card-title">Photo Posts · Collected Gallery</div>
                 <div class="card-meta" id="photoPostsMeta">– POSTS</div>
             </div>
-            <div class="post-gallery" id="photoGallery">
+            <div class="x-feed" id="photoGallery">
                 <div class="loading">LOADING</div>
             </div>
         </div>
@@ -2114,7 +2197,7 @@
                 <div class="card-title">Text Posts · Collected Gallery</div>
                 <div class="card-meta" id="textPostsMeta">– POSTS</div>
             </div>
-            <div class="post-gallery" id="textGallery">
+            <div class="x-feed" id="textGallery">
                 <div class="loading">LOADING</div>
             </div>
         </div>
@@ -2258,6 +2341,45 @@
             if (!name) return '?';
             return name.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
         };
+        function profileHandleFromUrl(url) {
+            const s = String(url || '');
+            let m = s.match(/threads\.com\/@([^/?#]+)/i);
+            if (m) return '@' + m[1];
+            m = s.match(/instagram\.com\/([^/?#]+)/i);
+            if (m && !['p', 'reel', 'reels', 'stories'].includes(m[1].toLowerCase())) return '@' + m[1];
+            m = s.match(/facebook\.com\/(?:profile\.php\?id=(\d+)|([^/?#]+))/i);
+            if (m) {
+                const h = m[1] || m[2];
+                if (h && !['photo', 'photos', 'watch', 'reel', 'reels', 'share'].includes(h.toLowerCase())) {
+                    return '@' + decodeURIComponent(h);
+                }
+            }
+            return '';
+        }
+        function renderTweetCard(p, opts) {
+            const url = (opts && opts.url) || p.post_url || p.photo_url || '#';
+            const body = (opts && opts.body) || p.caption || p.body || url;
+            const mediaUrl = (opts && opts.media) || p.image_src || '';
+            const name = (SUMMARY && SUMMARY.owner_name) || 'User';
+            const handle = profileHandleFromUrl((SUMMARY && SUMMARY.profile_url) || '');
+            const media = mediaUrl
+                ? `<img class="x-tweet-media" src="${escapeHtml(mediaUrl)}" alt="" loading="lazy" onerror="this.remove()">`
+                : '';
+            return `
+        <article class="x-tweet" onclick="window.open('${escapeHtml(url)}','_blank')">
+            <div class="x-tweet-avatar">${escapeHtml(initials(name))}</div>
+            <div>
+                <div class="x-tweet-head">
+                    <span class="x-tweet-name">${escapeHtml(name)}</span>
+                    <span class="x-tweet-handle">${escapeHtml(handle)}</span>
+                    <span class="x-tweet-date">· ${escapeHtml(p.date_text || '—')}</span>
+                </div>
+                <p class="x-tweet-body">${escapeHtml(body || url)}</p>
+                ${media}
+                ${engagementMetricsHtml(p, false)}
+            </div>
+        </article>`;
+        }
         const api = path => fetch(path).then(r => r.json()).catch(e => ({ ok: false, error: String(e) }));
         function escapeHtml(s) {
             if (s == null) return '';
@@ -3357,23 +3479,12 @@
             const c = document.getElementById('photoGallery');
             document.getElementById('photoPostsMeta').textContent = `${posts.length} POSTS`;
             if (!posts.length) { c.innerHTML = '<div class="empty">NO PHOTO POSTS</div>'; return; }
-            c.innerHTML = posts.map(p => `
-        <div class="post-card" onclick="window.open('${escapeHtml(p.photo_url)}','_blank')">
-            ${p.image_src
-                    ? `<img class="post-card-img" src="${escapeHtml(p.image_src)}"
-                       alt="photo" loading="lazy"
-                       onerror="this.outerHTML='<div class=\\'post-card-img-placeholder\\'>🖼</div>'">`
-                    : `<div class="post-card-img-placeholder">🖼</div>`
-                }
-            <div class="post-card-body">
-                <div class="post-card-caption">${escapeHtml(p.caption || '(no caption)')}<br></div>
-                <div class="post-card-meta">
-                    <span class="post-card-date">${escapeHtml(p.date_text || '—')}</span>
-                    ${engagementMetricsHtml(p, false)}
-                </div>
-            </div>
-        </div>
-    `).join('');
+            c.innerHTML = posts.map(p => renderTweetCard(p, {
+                url: p.photo_url || p.post_url,
+                body: p.caption || p.body || '',
+                media: p.image_src,
+            })).join('');
+            c.classList.add('x-feed');
         }
 
 
@@ -3381,29 +3492,14 @@
             const c = document.getElementById('textGallery');
             document.getElementById('textPostsMeta').textContent = `${posts.length} POSTS`;
             if (!posts.length) { c.innerHTML = '<div class="empty">NO TEXT POSTS</div>'; return; }
-            c.innerHTML = posts.map(p => {
-                const screenshotUrl = p.screenshot_path
-                    ? `/facebook/screenshot/${p.screenshot_path.replace(/^.*post_screenshots\//, 'post_screenshots/')}`
-                    : null;
-                return `
-        <div class="post-card" onclick="window.open('${escapeHtml(p.post_url)}','_blank')">
-            ${screenshotUrl
-                        ? `<img class="post-card-img" src="${escapeHtml(screenshotUrl)}"
-                       alt="screenshot" loading="lazy"
-                       onerror="this.outerHTML='<div class=\\'post-card-img-placeholder\\'>📄</div>'">`
-                        : `<div class="post-card-img-placeholder">📄</div>`
-                    }
-            <div class="post-card-body">
-                <div class="post-card-caption">${escapeHtml(p.post_url || '—')}</div>
-                <div class="post-card-meta">
-                    <span class="post-card-date">${escapeHtml(p.date_text || '—')}</span>
-                    ${engagementMetricsHtml(p, false)}
-                </div>
-            </div>
-        </div>
-        `;
-            }).join('');
+            c.innerHTML = posts.map(p => renderTweetCard(p, {
+                url: p.post_url,
+                body: p.caption || p.body || p.post_url,
+                media: p.image_src,
+            })).join('');
+            c.classList.add('x-feed');
         }
+
 
         function renderReelTable(reels) {
             const tbody = document.getElementById('reelTableBody');

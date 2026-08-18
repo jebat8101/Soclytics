@@ -99,10 +99,11 @@ pip install -q \
     numpy \
     reportlab \
     matplotlib \
+    wordcloud \
     telethon \
     beautifulsoup4 \
     requests
-echo -e "   ${GREEN}Flask, SeleniumBase, Pillow, NumPy, reportlab, matplotlib, telethon, bs4 installed${RESET}"
+echo -e "   ${GREEN}Flask, SeleniumBase, Pillow, NumPy, reportlab, matplotlib, wordcloud, telethon, bs4 installed${RESET}"
 echo ""
 
 

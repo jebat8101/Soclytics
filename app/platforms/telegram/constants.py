@@ -24,7 +24,7 @@ CONFIG_CANDIDATES = (
 DEPTH_LIMITS = {
     'light':  {'posts': 5,  'reels': 5,  'photos': 5},
     'medium': {'posts': 10, 'reels': 10, 'photos': 10},
-    'deep':   {'posts': 20, 'reels': 20, 'photos': 20},
+    'deep':   {'posts': 50, 'reels': 50, 'photos': 50},
 }
 
 PIPELINE_STEPS = [

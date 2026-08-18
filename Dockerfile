@@ -24,7 +24,7 @@ RUN python3.12 -m venv /app/venv
 ENV PATH="/app/venv/bin:$PATH"
 
 RUN pip install --upgrade pip \
-    && pip install flask seleniumbase Pillow numpy pytest reportlab matplotlib \
+    && pip install flask seleniumbase Pillow numpy pytest reportlab matplotlib wordcloud \
     && pip install telethon beautifulsoup4 requests \
     && pip install dlib \
     && pip install face_recognition \

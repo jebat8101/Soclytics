@@ -10,7 +10,7 @@ DB_FILE = os.path.join(BASE_DIR, 'socmint_reddit.db')
 DEPTH_LIMITS = {
     'light':  {'posts': 5},
     'medium': {'posts': 10},
-    'deep':   {'posts': 20},
+    'deep':   {'posts': 50},
 }
 
 PIPELINE_STEPS = [

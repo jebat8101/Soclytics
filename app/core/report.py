@@ -371,10 +371,15 @@ def _fetch_posts(db_file: str, profile_id: int) -> dict:
     )
     reels = [dict(r) for r in cur.fetchall()]
 
+    text_cols = {r[1] for r in cur.execute("PRAGMA table_info(text_posts)")}
+    caption_sql = "tp.body AS caption" if "body" in text_cols else "NULL AS caption"
+    image_sql = (
+        "tp.image_src" if "image_src" in text_cols else "tp.screenshot_path AS image_src"
+    )
     cur.execute(
-        """
-        SELECT tp.id, tp.post_url AS url, tp.date_text, NULL AS caption,
-               tp.screenshot_path AS image_src, tp.scraped_at,
+        f"""
+        SELECT tp.id, tp.post_url AS url, tp.date_text, {caption_sql},
+               {image_sql}, tp.scraped_at,
                COALESCE(tp.like_count, 0) AS like_count,
                COALESCE(tp.reply_count, 0) AS reply_count,
                COALESCE(tp.repost_count, 0) AS repost_count
@@ -411,6 +416,65 @@ def _fetch_x_posts(db_file: str, profile_id: int) -> dict:
     texts = [dict(r) for r in cur.fetchall()]
     con.close()
     return {"photos": [], "reels": [], "texts": texts}
+
+
+def _fetch_threads_posts(db_file: str, profile_id: int) -> dict:
+    """Threads text_posts — same fields as /threads/api/text-posts."""
+    con = sqlite3.connect(db_file)
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+    text_cols = {r[1] for r in cur.execute("PRAGMA table_info(text_posts)")}
+    source_sql = (
+        "COALESCE(tp.source_tab, 'threads') AS source_tab"
+        if "source_tab" in text_cols
+        else "'threads' AS source_tab"
+    )
+    media_sql = "tp.media_type" if "media_type" in text_cols else "NULL AS media_type"
+    image_sql = (
+        "tp.image_src" if "image_src" in text_cols else "tp.screenshot_path AS image_src"
+    )
+    cur.execute(
+        f"""
+        SELECT tp.id, tp.post_url AS url, tp.date_text, tp.body AS caption,
+               {image_sql}, {media_sql}, tp.scraped_at,
+               COALESCE(tp.like_count, 0) AS like_count,
+               COALESCE(tp.reply_count, 0) AS reply_count,
+               COALESCE(tp.repost_count, 0) AS repost_count,
+               {source_sql}
+        FROM text_posts tp
+        WHERE tp.profile_id = ?
+        ORDER BY tp.id DESC
+        """,
+        (profile_id,),
+    )
+    rows = [dict(r) for r in cur.fetchall()]
+    con.close()
+    photos = [r for r in rows if r.get("media_type") in ("image", "video")]
+    reels = [r for r in rows if r.get("media_type") == "video"]
+    texts_only = [r for r in rows if (r.get("media_type") or "text") == "text"]
+    return {"photos": photos, "reels": reels, "texts": rows, "text_only": texts_only}
+
+
+THREADS_PROFILE_TABS = ("threads", "replies", "media", "reposts")
+
+
+def _threads_tab_kind(row: dict) -> str:
+    return row.get("source_tab") or "threads"
+
+
+def _posts_for_threads_tab(rows: list, tab: str) -> list:
+    """Mirror threads/analysis.html postsForTab()."""
+    if tab == "replies":
+        return [r for r in rows if _threads_tab_kind(r) == "replies"]
+    if tab == "reposts":
+        return [r for r in rows if _threads_tab_kind(r) == "reposts"]
+    if tab == "media":
+        return [
+            r for r in rows
+            if r.get("media_type") in ("image", "video")
+            and _threads_tab_kind(r) != "reposts"
+        ]
+    return [r for r in rows if _threads_tab_kind(r) in ("threads", "media")]
 
 
 def _fetch_x_timeline(db_file: str, profile_id: int) -> list:
@@ -1799,7 +1863,91 @@ def build_x_posts(posts: dict, S) -> list:
     return story
 
 
-def build_posts(posts: dict, S) -> list:
+def _tweet_blocks(title: str, rows: list, S, meaning_key: str | None = None) -> list:
+    """Dashboard-style post cards: Comment · Repost · Like (no Views)."""
+    out = [Paragraph(title, S["sub"])]
+    if meaning_key:
+        meaning = _meaning_para(meaning_key, S)
+        if meaning:
+            out.append(meaning)
+    out.append(Spacer(1, 1 * mm))
+    if not rows:
+        out.append(Paragraph("None collected.", S["body"]))
+        out.append(Spacer(1, 4 * mm))
+        return out
+    for i, r in enumerate(rows, 1):
+        url = r.get("url") or r.get("post_url") or r.get("photo_url") or ""
+        caption = (r.get("caption") or r.get("body") or "").strip() or url or "(no text)"
+        head = Table(
+            [[
+                Paragraph(f"#{i}", S["th"]),
+                Paragraph(_esc(r.get("date_text") or r.get("scraped_at") or "—"), S["th"]),
+            ]],
+            colWidths=[18 * mm, 152 * mm],
+        )
+        head.setStyle(_table_style())
+        metrics = Table(
+            [[
+                Paragraph(f"Comment  {int(r.get('reply_count') or r.get('comment_count') or 0)}", S["td_c"]),
+                Paragraph(f"Repost  {int(r.get('repost_count') or 0)}", S["td_c"]),
+                Paragraph(f"Like  {int(r.get('like_count') or 0)}", S["td_c"]),
+            ]],
+            colWidths=[56.6 * mm] * 3,
+        )
+        metrics.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.Color(0.96, 0.94, 0.90)),
+            ("BOX", (0, 0), (-1, -1), 0.4, C_BORDER),
+            ("INNERGRID", (0, 0), (-1, -1), 0.3, C_BORDER),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        block = [
+            head,
+            Spacer(1, 1.5 * mm),
+            Paragraph(_esc(caption), S["body"]),
+        ]
+        if r.get("image_src"):
+            block.append(Paragraph(_esc(str(r.get("image_src"))), S["meaning"]))
+        if url and url != caption:
+            block.append(Paragraph(_esc(url), S["meaning"]))
+        block.extend([Spacer(1, 1.5 * mm), metrics, Spacer(1, 4 * mm)])
+        out.append(KeepTogether(block))
+    return out
+
+
+def build_threads_posts(posts: dict, S) -> list:
+    """Dashboard-style feed: Threads / Replies / Media / Reposts tabs."""
+    rows = posts.get("texts") or []
+    eng = _engagement_totals(posts)
+    story = [
+        Paragraph("05 / PROFILE POST FEED", S["section"]),
+        Paragraph(
+            "Same layout as the analysis dashboard: native profile tabs with "
+            "Comment · Repost · Like on each post (no Views).",
+            S["meaning"],
+        ),
+        Paragraph(
+            f"Total {len(rows)} posts · Comment {eng['comment']} · "
+            f"Repost {eng['repost']} · Like {eng['like']}",
+            S["body"],
+        ),
+        Spacer(1, 2 * mm),
+    ]
+    tab_titles = {
+        "threads": "Threads",
+        "replies": "Replies",
+        "media": "Media",
+        "reposts": "Reposts",
+    }
+    for tab in THREADS_PROFILE_TABS:
+        tab_rows = _posts_for_threads_tab(rows, tab)
+        label = tab_titles[tab]
+        story.extend(_tweet_blocks(f"{label} · {len(tab_rows)} posts", tab_rows, S))
+    story.append(PageBreak())
+    return story
+
+
+def build_posts(posts: dict, S, tweet_cards: bool = False) -> list:
     eng = _engagement_totals(posts)
     story = [
         Paragraph("05 / FULL POST INVENTORY", S["section"]),
@@ -1816,9 +1964,14 @@ def build_posts(posts: dict, S) -> list:
         )
     )
     story.append(Spacer(1, 2 * mm))
-    story.extend(_post_table("Photo / Media Posts", posts["photos"], S, "photos_posts"))
-    story.extend(_post_table("Reels", posts["reels"], S, "reels_posts"))
-    story.extend(_post_table("Text Posts", posts["texts"], S, "text_posts"))
+    if tweet_cards:
+        story.extend(_tweet_blocks("Photo / Media Posts", posts["photos"], S, "photos_posts"))
+        story.extend(_post_table("Reels", posts["reels"], S, "reels_posts"))
+        story.extend(_tweet_blocks("Text Posts", posts["texts"], S, "text_posts"))
+    else:
+        story.extend(_post_table("Photo / Media Posts", posts["photos"], S, "photos_posts"))
+        story.extend(_post_table("Reels", posts["reels"], S, "reels_posts"))
+        story.extend(_post_table("Text Posts", posts["texts"], S, "text_posts"))
     story.append(PageBreak())
     return story
 
@@ -2292,6 +2445,8 @@ def gather_report_data(profile_id: int, db_file: str, platform: str = "facebook"
         "posts": (
             _fetch_x_posts(db_file, profile_id)
             if is_x
+            else _fetch_threads_posts(db_file, profile_id)
+            if platform == "threads"
             else _fetch_posts(db_file, profile_id)
         ),
         "engagement": None,
@@ -2358,7 +2513,13 @@ def generate_report(
         story.extend(build_network(data["interactors"], data["coco"], S))
         story.extend(build_interactors(data["interactors"], S))
         story.extend(build_top7_section(data["top7"], S))
-        story.extend(build_posts(data["posts"], S))
+        if platform == "threads":
+            story.extend(build_threads_posts(data["posts"], S))
+        else:
+            story.extend(build_posts(
+                data["posts"], S,
+                tweet_cards=platform in ("facebook", "instagram"),
+            ))
         story.extend(build_comments(data["comments"], S))
         story.extend(build_timeline(data["timeline"], S))
         if platform == "telegram":
@@ -2387,9 +2548,55 @@ def generate_json_report(
             REPORTS_DIR, f"{_report_stem(data['profile'], platform)}.json"
         )
     payload = _x_dashboard_payload(data) if platform == "x" else data
+    if platform == "threads":
+        rows = (data.get("posts") or {}).get("texts") or []
+        payload["feed"] = _threads_dashboard_feed(rows)
+    elif platform in ("facebook", "instagram"):
+        payload["feed"] = _dashboard_feed(data.get("posts") or {})
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2, default=str)
     return out_path
+
+
+def _dashboard_feed(posts: dict) -> dict:
+    """Tweet-card JSON for Facebook / Instagram / Threads (no Views)."""
+    def item(row: dict) -> dict:
+        return {
+            "post_url": row.get("url") or row.get("post_url") or row.get("photo_url"),
+            "date_text": row.get("date_text"),
+            "body": row.get("caption") or row.get("body") or "",
+            "image_src": row.get("image_src"),
+            "reply_count": int(row.get("reply_count") or 0),
+            "repost_count": int(row.get("repost_count") or 0),
+            "like_count": int(row.get("like_count") or 0),
+        }
+
+    return {
+        "photos": [item(r) for r in posts.get("photos") or []],
+        "texts": [item(r) for r in posts.get("texts") or []],
+    }
+
+
+def _threads_feed_item(row: dict) -> dict:
+    return {
+        "post_url": row.get("url") or row.get("post_url"),
+        "date_text": row.get("date_text"),
+        "body": row.get("caption") or row.get("body") or "",
+        "image_src": row.get("image_src"),
+        "media_type": row.get("media_type") or ("image" if row.get("image_src") else "text"),
+        "source_tab": _threads_tab_kind(row),
+        "reply_count": int(row.get("reply_count") or 0),
+        "repost_count": int(row.get("repost_count") or 0),
+        "like_count": int(row.get("like_count") or 0),
+    }
+
+
+def _threads_dashboard_feed(rows: list) -> dict:
+    """JSON feed matching threads/analysis.html profile tabs."""
+    return {
+        tab: [_threads_feed_item(r) for r in _posts_for_threads_tab(rows, tab)]
+        for tab in THREADS_PROFILE_TABS
+    }
 
 
 def _x_dashboard_payload(data: dict) -> dict:

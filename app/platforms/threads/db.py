@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS text_posts (
     body              TEXT,
     media_type        TEXT,
     image_src         TEXT,
+    source_tab        TEXT DEFAULT 'threads',
     scraped_at        TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (profile_id) REFERENCES profiles(id)
 );
@@ -197,10 +198,27 @@ CREATE TABLE IF NOT EXISTS detected_faces (
 """
 
 
+def ensure_source_tab_column(con):
+    cur = con.cursor()
+    cur.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='text_posts'"
+    )
+    if not cur.fetchone():
+        return
+    cur.execute('PRAGMA table_info(text_posts)')
+    cols = {row[1] for row in cur.fetchall()}
+    if 'source_tab' not in cols:
+        cur.execute(
+            "ALTER TABLE text_posts ADD COLUMN source_tab TEXT DEFAULT 'threads'"
+        )
+    con.commit()
+
+
 def init_db(db_file=DB_FILE):
     con = sqlite3.connect(db_file)
     con.executescript(SCHEMA)
     ensure_engagement_columns(con)
+    ensure_source_tab_column(con)
     con.commit()
     con.close()
     print(f'  DB initialized: {db_file}')
@@ -275,6 +293,7 @@ def import_about(about_json=ABOUT_JSON, db_file=DB_FILE, expected_profile_url=No
     cur = con.cursor()
     cur.executescript(SCHEMA)
     ensure_engagement_columns(con)
+    ensure_source_tab_column(con)
     profile_id = get_or_create_profile(cur, profile_url, owner_name, is_locked)
     cur.execute('DELETE FROM profile_fields WHERE profile_id = ?', (profile_id,))
 
@@ -316,6 +335,7 @@ def import_posts(posts_json=POSTS_JSON, db_file=DB_FILE, profile_id=None):
     cur = con.cursor()
     cur.executescript(SCHEMA)
     ensure_engagement_columns(con)
+    ensure_source_tab_column(con)
     if not profile_id:
         print('  No profile_id - skipping posts')
         con.close()
@@ -376,6 +396,13 @@ def import_posts(posts_json=POSTS_JSON, db_file=DB_FILE, profile_id=None):
                 as_int(item.get('repost_count')),
                 text_post_id,
             ),
+        )
+        source_tab = item.get('source_tab') or 'threads'
+        if source_tab not in ('threads', 'replies', 'media', 'reposts'):
+            source_tab = 'threads'
+        cur.execute(
+            'UPDATE text_posts SET source_tab=? WHERE id=?',
+            (source_tab, text_post_id),
         )
         cur.execute('SELECT id FROM reel_posts WHERE reel_url = ?', (post_url,))
         reel_post_id = cur.fetchone()[0]

@@ -36,6 +36,11 @@ if os.name != 'nt':
         pass
 
 OUTPUT_FILE = 'threads_posts.json'
+MAX_REPLY_EXPAND_ROUNDS = 80
+REPLY_EXPAND_IDLE_STOP = 3
+MAX_PROFILE_SCROLL_ROUNDS = 200
+PROFILE_SCROLL_IDLE_STOP = 4
+PROFILE_TABS = ('threads', 'replies', 'media', 'reposts')
 
 
 def _clean_post_url(href: str):
@@ -329,14 +334,27 @@ return false;
 
 EXPAND_REPLIES_JS = """
 var clicked = 0;
-var nodes = document.querySelectorAll('button, div[role="button"], a');
+var nodes = document.querySelectorAll('button, div[role="button"], a, span[role="button"]');
 for (var i = 0; i < nodes.length; i++) {
     var t = ((nodes[i].innerText || '') + ' ' + (nodes[i].getAttribute('aria-label') || '')).toLowerCase();
-    if (t.indexOf('view') !== -1 && (t.indexOf('repl') !== -1 || t.indexOf('more') !== -1)) {
+    if (!t || t.indexOf('hide') !== -1) continue;
+    var isReply = t.indexOf('repl') !== -1 || t.indexOf('comment') !== -1;
+    var isMore = t.indexOf('view') !== -1 || t.indexOf('show') !== -1
+        || t.indexOf('see') !== -1 || t.indexOf('more') !== -1;
+    if (isReply && isMore) {
         try { nodes[i].click(); clicked++; } catch (e) {}
     }
 }
 return clicked;
+"""
+
+COUNT_REPLY_JS = """
+var codes = {};
+document.querySelectorAll('a[href*="/post/"]').forEach(function(a) {
+    var m = (a.href || '').match(/\\/post\\/([A-Za-z0-9_-]+)/);
+    if (m) codes[m[1]] = true;
+});
+return Object.keys(codes).length;
 """
 
 
@@ -353,6 +371,99 @@ document.querySelectorAll('a[href*="/post/"]').forEach(function(a) {
 });
 return result;
 """
+
+
+def apply_post_cap(urls: list[str], max_posts) -> list[str]:
+    if max_posts is None or int(max_posts) <= 0:
+        return list(urls)
+    return list(urls)[: int(max_posts)]
+
+
+def own_post_urls(urls: list[str], profile_url: str) -> list[str]:
+    handle = None
+    hm = re.search(r'threads\.(?:com|net)/@([A-Za-z0-9._]+)', profile_url or '')
+    if hm:
+        handle = hm.group(1).lower()
+    if not handle:
+        return list(urls)
+    own = [u for u in urls if u and f'/@{handle}/post/' in u.lower()]
+    return own if own else list(urls)
+
+
+def is_own_post(post_url: str, profile_url: str) -> bool:
+    hm = re.search(r'threads\.(?:com|net)/@([A-Za-z0-9._]+)', profile_url or '')
+    if not hm or not post_url:
+        return False
+    handle = hm.group(1).lower()
+    return f'/@{handle}/post/' in post_url.lower()
+
+
+def profile_tab_url(profile_url: str, tab: str) -> str:
+    base = (profile_url or '').rstrip('/') + '/'
+    name = (tab or 'threads').lower()
+    if name not in PROFILE_TABS:
+        raise ValueError(f'unknown Threads tab: {tab}')
+    if name == 'threads':
+        return base
+    return base + name + '/'
+
+
+def merge_tab_urls(by_tab: dict, profile_url: str, cap=None) -> list[dict]:
+    """Dedupe post URLs in native tab order. Threads/Media keep own posts only."""
+    seen = set()
+    out = []
+    limit = None if cap is None or int(cap) <= 0 else int(cap)
+    for tab in PROFILE_TABS:
+        urls = list(by_tab.get(tab) or [])
+        if tab in ('threads', 'media'):
+            urls = own_post_urls(urls, profile_url)
+        for url in urls:
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            out.append({'post_url': url, 'source_tab': tab})
+            if limit is not None and len(out) >= limit:
+                return out
+    return out
+
+
+def collect_until_idle(
+    collect_fn,
+    scroll_fn,
+    sleep_fn=None,
+    max_rounds=MAX_PROFILE_SCROLL_ROUNDS,
+    max_idle=PROFILE_SCROLL_IDLE_STOP,
+    cap=None,
+) -> tuple[list, int]:
+    """Scroll a profile (or similar feed) until no new URLs appear."""
+    sleep_fn = sleep_fn or (lambda: None)
+    found = set()
+    ordered = []
+    idle = 0
+    rounds = 0
+    limit = None if cap is None or int(cap) <= 0 else int(cap)
+
+    for _ in range(max(1, int(max_rounds))):
+        rounds += 1
+        added = 0
+        for url in collect_fn() or []:
+            if not url or url in found:
+                continue
+            found.add(url)
+            ordered.append(url)
+            added += 1
+            if limit is not None and len(ordered) >= limit:
+                return ordered, rounds
+        if added == 0:
+            idle += 1
+            if idle >= max(1, int(max_idle)):
+                return ordered, rounds
+        else:
+            idle = 0
+        if scroll_fn:
+            scroll_fn()
+        sleep_fn()
+    return ordered, rounds
 
 
 def _merge_interactors(base: list, extra: list, with_text: bool) -> list:
@@ -372,6 +483,17 @@ def _merge_interactors(base: list, extra: list, with_text: bool) -> list:
         if with_text:
             row['comment_text'] = text or ''
         out.append(row)
+    if with_text:
+        with_body = {
+            (r.get('profile_url') or '').rstrip('/').lower() + '/'
+            for r in out
+            if (r.get('comment_text') or '').strip()
+        }
+        out = [
+            r for r in out
+            if (r.get('comment_text') or '').strip()
+            or ((r.get('profile_url') or '').rstrip('/').lower() + '/') not in with_body
+        ]
     return out
 
 
@@ -398,7 +520,7 @@ def parse_post_from_html(html: str, post_url: str) -> dict:
         if item.get('username'):
             uname = item.get('username')
             replies.append({
-                'name': item.get('name') or uname,
+                'name': uname or item.get('name'),
                 'profile_url': item.get('profile_url')
                 or f'https://www.threads.com/@{uname}/',
                 'comment_text': item.get('caption') or '',
@@ -411,7 +533,7 @@ def parse_post_from_html(html: str, post_url: str) -> dict:
             if item.get('username'):
                 uname = item.get('username')
                 replies.append({
-                    'name': item.get('name') or uname,
+                    'name': uname or item.get('name'),
                     'profile_url': item.get('profile_url')
                     or f'https://www.threads.com/@{uname}/',
                     'comment_text': item.get('caption') or '',
@@ -437,60 +559,66 @@ def parse_post_from_html(html: str, post_url: str) -> dict:
     }
 
 
-def phase1_collect_urls(sb, profile_url: str, max_posts: int) -> list[str]:
-    print(f'\nPHASE 1 - Collecting up to {max_posts} thread URLs')
-    sb.open(profile_url.rstrip('/') + '/')
-    time.sleep(5)
+def _collect_visible_post_urls(sb) -> list[str]:
+    raw = sb.execute_script(f'(function(){{ {COLLECT_POSTS_JS} }})()') or []
+    cleaned = []
+    for url in raw:
+        clean = _clean_post_url(url)
+        if clean:
+            cleaned.append(clean)
+    return cleaned
+
+
+def _scroll_collect_tab(sb, cap=None) -> list[str]:
+    urls, rounds = collect_until_idle(
+        lambda: _collect_visible_post_urls(sb),
+        scroll_fn=lambda: sb.execute_script(
+            '(function(){ window.scrollBy(0, 1400); })()'
+        ),
+        sleep_fn=lambda: time.sleep(2),
+        max_rounds=MAX_PROFILE_SCROLL_ROUNDS,
+        max_idle=PROFILE_SCROLL_IDLE_STOP,
+        cap=cap,
+    )
+    print(f'   Scroll rounds: {rounds}')
     html = sb.get_page_source()
-    if _looks_like_login_page(html):
-        raise RuntimeError(
-            'Threads login page detected after cookie load — '
-            'session expired or cookies invalid.'
-        )
-
-    urls = []
-    found = set()
-    no_change = 0
-    for _step in range(20):
-        js_urls = sb.execute_script(f'(function(){{ {COLLECT_POSTS_JS} }})()') or []
-        added = 0
-        for url in js_urls:
-            clean = _clean_post_url(url)
-            if clean and clean not in found:
-                found.add(clean)
-                urls.append(clean)
-                added += 1
-        if len(urls) >= max_posts:
-            break
-        if added == 0:
-            no_change += 1
-            if no_change >= 4:
-                break
-        else:
-            no_change = 0
-        sb.execute_script('(function(){ window.scrollBy(0, 1400); })()')
-        time.sleep(2)
-
-    if len(urls) < max_posts:
-        html = sb.get_page_source()
-        for url in collect_post_urls_from_html(html, max_posts):
-            if url not in found:
-                found.add(url)
-                urls.append(url)
-
-    # Prefer posts that belong to this profile handle.
-    handle = None
-    hm = re.search(r'threads\.(?:com|net)/@([A-Za-z0-9._]+)', profile_url)
-    if hm:
-        handle = hm.group(1).lower()
-    if handle:
-        own = [u for u in urls if f'/@{handle}/post/' in u.lower()]
-        if own:
-            urls = own
-
-    urls = urls[:max_posts]
-    print(f'   Found {len(urls)} posts')
+    html_cap = cap if cap is not None else 10**9
+    found = set(urls)
+    for url in collect_post_urls_from_html(html, html_cap):
+        if url not in found:
+            found.add(url)
+            urls.append(url)
     return urls
+
+
+def phase1_collect_urls(sb, profile_url: str, max_posts: int | None = None) -> list[dict]:
+    cap = None if max_posts is None or int(max_posts) <= 0 else int(max_posts)
+    label = 'all' if cap is None else str(cap)
+    print(f'\nPHASE 1 - Collecting {label} posts from Threads / Replies / Media / Reposts')
+    by_tab = {}
+    first = True
+    for tab in PROFILE_TABS:
+        tab_url = profile_tab_url(profile_url, tab)
+        print(f'   Tab {tab}: {tab_url}')
+        sb.open(tab_url)
+        time.sleep(5)
+        html = sb.get_page_source()
+        if first and _looks_like_login_page(html):
+            raise RuntimeError(
+                'Threads login page detected after cookie load — '
+                'session expired or cookies invalid.'
+            )
+        first = False
+        remaining = None if cap is None else max(0, cap - sum(len(v) for v in by_tab.values()))
+        if remaining is not None and remaining == 0:
+            by_tab[tab] = []
+            continue
+        by_tab[tab] = _scroll_collect_tab(sb, cap=remaining)
+        print(f'   {tab}: {len(by_tab[tab])} urls')
+
+    merged = merge_tab_urls(by_tab, profile_url, cap=cap)
+    print(f'   Found {len(merged)} unique posts')
+    return merged
 
 
 def _harvest_dialog_users(sb, tab_label: str | None = None) -> list[dict]:
@@ -507,6 +635,66 @@ def _harvest_dialog_users(sb, tab_label: str | None = None) -> list[dict]:
         pass
     users = sb.execute_script(f'(function(){{ {SCRAPE_PROFILE_LINKS_JS} }})()') or []
     return users if isinstance(users, list) else []
+
+
+def expand_replies_until_exhausted(
+    expand_fn,
+    scroll_fn,
+    count_fn=None,
+    sleep_fn=None,
+    max_rounds=MAX_REPLY_EXPAND_ROUNDS,
+    max_idle=REPLY_EXPAND_IDLE_STOP,
+    target_count=None,
+) -> int:
+    """Keep expanding/scrolling replies until growth stops or a cap is hit.
+
+    Returns the number of expand rounds actually run.
+    """
+    idle = 0
+    prev = 0
+    rounds = 0
+    sleep_fn = sleep_fn or (lambda: None)
+    target = None
+    if target_count is not None:
+        target = int(target_count)
+
+    for _ in range(max(1, int(max_rounds))):
+        rounds += 1
+        clicked = int(expand_fn() or 0)
+        if scroll_fn:
+            scroll_fn()
+        sleep_fn()
+        current = int(count_fn() or 0) if count_fn else 0
+        if target is not None and current >= target:
+            break
+        grew = current > prev
+        if clicked or grew:
+            idle = 0
+        else:
+            idle += 1
+            if idle >= max(1, int(max_idle)):
+                break
+        prev = max(prev, current)
+    return rounds
+
+
+def _expand_all_replies_on_page(sb, target_count=None) -> int:
+    def expand_fn():
+        return sb.execute_script(f'(function(){{ {EXPAND_REPLIES_JS} }})()') or 0
+
+    def scroll_fn():
+        sb.execute_script('(function(){ window.scrollBy(0, 1200); })()')
+
+    def count_fn():
+        return sb.execute_script(f'(function(){{ {COUNT_REPLY_JS} }})()') or 0
+
+    return expand_replies_until_exhausted(
+        expand_fn,
+        scroll_fn,
+        count_fn=count_fn,
+        sleep_fn=lambda: time.sleep(1.2),
+        target_count=target_count,
+    )
 
 
 def _scrape_engagements(sb) -> tuple[list, list]:
@@ -533,59 +721,80 @@ def _scrape_engagements(sb) -> tuple[list, list]:
     return likes, reposts
 
 
-def phase2_scrape_post(sb, post_url: str, idx: int, total: int) -> dict:
-    print(f'\n  [{idx}/{total}] {post_url}')
+def phase2_scrape_post(
+    sb,
+    post_url: str,
+    idx: int,
+    total: int,
+    profile_url: str | None = None,
+    source_tab: str = 'threads',
+) -> dict:
+    print(f'\n  [{idx}/{total}] [{source_tab}] {post_url}')
     sb.open(post_url)
     time.sleep(5)
 
-    try:
-        sb.execute_script(f'(function(){{ {EXPAND_REPLIES_JS} }})()')
-        time.sleep(2)
-        for _ in range(6):
-            sb.execute_script('(function(){ window.scrollBy(0, 900); })()')
-            time.sleep(1.2)
-            sb.execute_script(f'(function(){{ {EXPAND_REPLIES_JS} }})()')
-    except Exception:
-        pass
+    harvest = is_own_post(post_url, profile_url) if profile_url else True
+    if harvest:
+        try:
+            preview = parse_post_from_html(sb.get_page_source(), post_url)
+            target = None
+            raw_target = preview.get('reply_count')
+            if raw_target is not None:
+                try:
+                    # COUNT_REPLY_JS unique /post/ codes include the main post.
+                    target = int(raw_target) + 1
+                except (TypeError, ValueError):
+                    target = None
+            rounds = _expand_all_replies_on_page(sb, target_count=target)
+            print(f'    expand  : {rounds} rounds (target={target})')
+        except Exception as e:
+            print(f'    [replies] expand failed: {e}')
+    else:
+        print('    expand  : skipped (not own post)')
 
     html = sb.get_page_source()
     result = parse_post_from_html(html, post_url)
+    result['source_tab'] = source_tab or 'threads'
 
     # Supplement replies from live DOM profile links under the thread.
     author = None
     am = re.search(r'threads\.(?:com|net)/@([A-Za-z0-9._]+)/post/', post_url)
     if am:
         author = am.group(1).lower()
-    try:
-        dom_users = sb.execute_script(f'(function(){{ {SCRAPE_PROFILE_LINKS_JS} }})()') or []
-        reply_extra = []
-        for u in dom_users:
-            url = (u.get('profile_url') or '').lower()
-            if author and f'/@{author}/' in url:
-                continue
-            reply_extra.append({
-                'name': u.get('name'),
-                'profile_url': u.get('profile_url'),
-                'comment_text': '',
-            })
-        result['replies'] = _merge_interactors(result.get('replies'), reply_extra, with_text=True)
-    except Exception:
-        pass
+    if harvest:
+        try:
+            dom_users = sb.execute_script(f'(function(){{ {SCRAPE_PROFILE_LINKS_JS} }})()') or []
+            reply_extra = []
+            for u in dom_users:
+                url = (u.get('profile_url') or '').lower()
+                if author and f'/@{author}/' in url:
+                    continue
+                reply_extra.append({
+                    'name': u.get('name'),
+                    'profile_url': u.get('profile_url'),
+                    'comment_text': '',
+                })
+            result['replies'] = _merge_interactors(result.get('replies'), reply_extra, with_text=True)
+        except Exception:
+            pass
 
-    likes, reposts = _scrape_engagements(sb)
-    result['likes'] = _merge_interactors(result.get('likes'), likes, with_text=False)
-    result['reposts'] = _merge_interactors(result.get('reposts'), reposts, with_text=False)
+        likes, reposts = _scrape_engagements(sb)
+        result['likes'] = _merge_interactors(result.get('likes'), likes, with_text=False)
+        result['reposts'] = _merge_interactors(result.get('reposts'), reposts, with_text=False)
 
-    # Strip author from likes/reposts.
-    if author:
-        result['likes'] = [
-            x for x in result['likes']
-            if f'/@{author}/' not in (x.get('profile_url') or '').lower()
-        ]
-        result['reposts'] = [
-            x for x in result['reposts']
-            if f'/@{author}/' not in (x.get('profile_url') or '').lower()
-        ]
+        if author:
+            result['likes'] = [
+                x for x in result['likes']
+                if f'/@{author}/' not in (x.get('profile_url') or '').lower()
+            ]
+            result['reposts'] = [
+                x for x in result['reposts']
+                if f'/@{author}/' not in (x.get('profile_url') or '').lower()
+            ]
+    else:
+        result['replies'] = []
+        result['likes'] = []
+        result['reposts'] = []
 
     print(f"    date    : {result.get('date')}")
     print(f"    caption : {(result.get('caption') or '')[:60]}")
@@ -611,9 +820,24 @@ def main(PROFILE_URL: str, MAX_POSTS: int = 10):
         print(f'PHASE 2 - Scraping {len(post_links)} posts + engagements')
         print('═' * 65)
 
-        for i, post_url in enumerate(post_links, 1):
+        for i, item in enumerate(post_links, 1):
+            if isinstance(item, dict):
+                post_url = item.get('post_url') or ''
+                source_tab = item.get('source_tab') or 'threads'
+            else:
+                post_url = item
+                source_tab = 'threads'
             try:
-                results.append(phase2_scrape_post(sb, post_url, i, len(post_links)))
+                results.append(
+                    phase2_scrape_post(
+                        sb,
+                        post_url,
+                        i,
+                        len(post_links),
+                        profile_url=PROFILE_URL,
+                        source_tab=source_tab,
+                    )
+                )
             except Exception as e:
                 print(f'    Error on post {i}: {e}')
                 results.append(
@@ -623,6 +847,7 @@ def main(PROFILE_URL: str, MAX_POSTS: int = 10):
                         'caption': None,
                         'image_src': None,
                         'media_type': 'text',
+                        'source_tab': source_tab,
                         'replies': [],
                         'likes': [],
                         'reposts': [],

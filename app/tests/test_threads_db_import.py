@@ -78,3 +78,27 @@ def test_missing_count_keys_store_zero(tmp_path):
     con.close()
 
     assert row == (0, 0, 0)
+
+
+def test_import_stores_source_tab(tmp_path):
+    import json
+    from platforms.threads.db import import_all
+
+    db_file = str(tmp_path / 'socmint_threads.db')
+    about = os.path.join(FIXTURES, 'threads_about.json')
+    posts_src = os.path.join(FIXTURES, 'threads_posts.json')
+    with open(posts_src, encoding='utf-8') as f:
+        items = json.load(f)
+    items[0]['source_tab'] = 'replies'
+    posts = str(tmp_path / 'threads_posts_replies_tab.json')
+    with open(posts, 'w', encoding='utf-8') as f:
+        json.dump(items, f)
+
+    profile_id = import_all(about, posts, db_file)
+    con = sqlite3.connect(db_file)
+    row = con.execute(
+        'SELECT source_tab FROM text_posts WHERE profile_id=?',
+        (profile_id,),
+    ).fetchone()
+    con.close()
+    assert row == ('replies',)

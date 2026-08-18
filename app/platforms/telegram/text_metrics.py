@@ -333,8 +333,10 @@ def render_word_cloud_png(freqs: dict[str, int], *, width: int = 1200, height: i
         import matplotlib
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
-    except ImportError:
-        return None
+    except ImportError as exc:
+        raise RuntimeError(
+            'wordcloud package not installed — pip install wordcloud'
+        ) from exc
 
     wc = WordCloud(
         width=width,
