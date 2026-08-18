@@ -18,3 +18,31 @@ def test_fb_ig_threads_analysis_use_x_tweet_feed():
         assert 'class="x-tweet"' in text, name
         assert 'engagementMetricsHtml(p, false)' in text, name
         assert 'engagementMetricsHtml(p, true)' not in text, name
+
+
+def _threads_scan_desc(depth: str) -> str:
+    import re
+    text = (ROOT / 'threads' / 'index.html').read_text(encoding='utf-8')
+    match = re.search(
+        rf'id="depth-{depth}"[\s\S]*?<span class="scan-desc">(.*?)</span>',
+        text,
+    )
+    assert match, depth
+    return match.group(1)
+
+
+def test_threads_light_medium_scan_setup_matches_deep_tabs():
+    tabs = ('Threads', 'Replies', 'Media', 'Reposts')
+    light = _threads_scan_desc('light')
+    medium = _threads_scan_desc('medium')
+    deep = _threads_scan_desc('deep')
+    for name in tabs:
+        assert name in deep, name
+        assert name in light, name
+        assert name in medium, name
+    assert '5 posts' in light
+    assert '10 posts' in medium
+    assert 'reels' not in light.lower()
+    assert 'photos' not in light.lower()
+    assert 'reels' not in medium.lower()
+    assert 'photos' not in medium.lower()
