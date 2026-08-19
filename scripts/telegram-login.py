@@ -48,7 +48,7 @@ def main() -> int:
     args = ap.parse_args()
 
     try:
-        from telethon import TelegramClient
+        from telethon.sync import TelegramClient
     except ImportError:
         print("telethon is not installed — run: pip install telethon", file=sys.stderr)
         return 1
@@ -82,11 +82,15 @@ def main() -> int:
     print(f"\nAuthorizing {placeholder}")
     print("Telegram will send a login code to your account.\n")
 
-    with TelegramClient(session_path, api_id, api_hash) as client:
+    client = TelegramClient(session_path, api_id, api_hash)
+    client.start()
+    try:
         me = client.get_me()
         handle = f"@{me.username}" if me.username else f"id {me.id}"
         name = " ".join(p for p in (me.first_name, me.last_name) if p)
         print(f"\nAuthorized as {name} ({handle})")
+    finally:
+        client.disconnect()
 
     with open(args.config, "w", encoding="utf-8") as f:
         json.dump({

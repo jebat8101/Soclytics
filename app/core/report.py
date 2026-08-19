@@ -61,6 +61,20 @@ C_LIGHT_BG2 = colors.HexColor("#eef0f2")
 C_BORDER = colors.HexColor("#dee2e6")
 C_TEXT = colors.HexColor("#212529")
 C_SUBTEXT = colors.HexColor("#6c757d")
+C_DASH_BG = colors.HexColor("#1a1a1d")
+C_DASH_ELEV = colors.HexColor("#141416")
+C_DASH_GOLD = colors.HexColor("#f4c46b")
+C_DASH_FAINT = colors.HexColor("#8a8a92")
+C_DASH_BORDER = colors.HexColor("#2a2a2e")
+_DASH_BG = "#1a1a1d"
+_DASH_ELEV = "#141416"
+_DASH_TEXT = "#c0c0c8"
+_DASH_FAINT = "#8a8a92"
+_DASH_TITLE = "#f5f5f7"
+_DASH_BORDER = "#2a2a2e"
+_DASH_LIKE = "#f91880"
+_DASH_COMMENT = "#1d9bf0"
+_DASH_REPOST = "#00ba7c"
 
 # Short meaning blurbs under every report title so a reader knows what
 # each heading is for without opening the analysis UI.
@@ -153,6 +167,10 @@ SECTION_MEANINGS = {
     "08": (
         "Message-level activity from captions, comments and day-thread transcripts "
         "(ConvoMetrics-style). Charts show volume by calendar day, weekday and hour."
+    ),
+    "08_engagement": (
+        "Same Like / Comment / Repost series as the analysis dashboard Activity Timeline. "
+        "Stacked charts by calendar day, weekday and hour."
     ),
     "09": (
         "Lexical fingerprint of the collected corpus after stopword filtering. Includes a "
@@ -261,6 +279,14 @@ def make_styles():
             "stat_v", fontName="Helvetica-Bold", fontSize=16,
             textColor=C_DARK, alignment=TA_CENTER,
         ),
+        "dash_stat_l": ParagraphStyle(
+            "dash_stat_l", fontName="Helvetica-Bold", fontSize=8,
+            textColor=C_DASH_FAINT, alignment=TA_CENTER,
+        ),
+        "dash_stat_v": ParagraphStyle(
+            "dash_stat_v", fontName="Helvetica-Bold", fontSize=18,
+            textColor=C_DASH_GOLD, alignment=TA_CENTER,
+        ),
         "confidential": ParagraphStyle(
             "confidential", fontName="Helvetica-Bold", fontSize=10,
             textColor=C_ACCENT, alignment=TA_CENTER, spaceAfter=6,
@@ -327,6 +353,26 @@ def _stat_box(label: str, value, S) -> Table:
                 ("BOX", (0, 0), (-1, -1), 0.5, C_BORDER),
                 ("TOPPADDING", (0, 0), (-1, -1), 5),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ]
+        )
+    )
+    return t
+
+
+def _dashboard_stat_box(label: str, value, S) -> Table:
+    data = [
+        [Paragraph(_esc(str(value)), S["dash_stat_v"])],
+        [Paragraph(_esc(label), S["dash_stat_l"])],
+    ]
+    t = Table(data, colWidths=[50 * mm])
+    t.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), C_DASH_ELEV),
+                ("BOX", (0, 0), (-1, -1), 0.6, C_DASH_BORDER),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ]
         )
@@ -633,10 +679,13 @@ def chart_x_timeline(rows: list):
     return _chart_buf(fig)
 
 
-def _chart_buf(fig):
+def _chart_buf(fig, tight: bool = True):
     import io
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=140, bbox_inches="tight", facecolor="white")
+    kwargs = dict(format="png", dpi=140, facecolor=fig.get_facecolor())
+    if tight:
+        kwargs["bbox_inches"] = "tight"
+    fig.savefig(buf, **kwargs)
     plt.close(fig)
     buf.seek(0)
     return buf
@@ -858,6 +907,78 @@ def chart_activity_weekday_hour(activity: dict):
     return _chart_buf(fig)
 
 
+def _style_dashboard_ax(ax, title: str = ""):
+    ax.set_facecolor(_DASH_BG)
+    for spine in ax.spines.values():
+        spine.set_color(_DASH_BORDER)
+    ax.tick_params(colors=_DASH_FAINT, labelsize=7)
+    ax.yaxis.grid(True, linestyle="-", color="white", alpha=0.08)
+    ax.set_axisbelow(True)
+    if title:
+        ax.set_title(title, fontsize=10, fontweight="bold", color=_DASH_TITLE, pad=22)
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.16),
+        ncol=3,
+        frameon=False,
+        fontsize=8,
+        labelcolor=_DASH_TEXT,
+    )
+
+
+def _stack_engagement_bars(ax, rows: list, xlabels: list, title: str = ""):
+    like = [int(r.get("like") or 0) for r in rows]
+    comment = [int(r.get("comment") or 0) for r in rows]
+    repost = [int(r.get("repost") or 0) for r in rows]
+    idx = list(range(len(xlabels)))
+    ax.bar(idx, like, color=_DASH_LIKE, label="Like", width=0.72)
+    ax.bar(idx, comment, bottom=like, color=_DASH_COMMENT, label="Comment", width=0.72)
+    ax.bar(
+        idx, repost,
+        bottom=[a + b for a, b in zip(like, comment)],
+        color=_DASH_REPOST, label="Repost", width=0.72,
+    )
+    ax.set_xticks(idx)
+    rotate = 40 if len(xlabels) > 8 else 0
+    ha = "right" if rotate else "center"
+    tick_size = 6 if len(xlabels) > 12 else 8
+    ax.set_xticklabels(xlabels, rotation=rotate, ha=ha, fontsize=tick_size)
+    _style_dashboard_ax(ax, title)
+
+
+def chart_engagement_activity_day(activity: dict):
+    """Stacked Like / Comment / Repost by date — dashboard Activity Timeline."""
+    rows = activity.get("by_date") or []
+    if not rows:
+        return None
+    fig, ax = plt.subplots(figsize=(8.4, 3.4))
+    fig.patch.set_facecolor(_DASH_ELEV)
+    _stack_engagement_bars(ax, rows, [str(r.get("date") or "") for r in rows], "")
+    fig.subplots_adjust(top=0.82, bottom=0.22, left=0.08, right=0.98)
+    return _chart_buf(fig, tight=False)
+
+
+def chart_engagement_activity_weekday_hour(activity: dict):
+    week = activity.get("by_weekday") or []
+    hours = activity.get("by_hour") or []
+    if not week and not hours:
+        return None
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8.4, 3.2))
+    fig.patch.set_facecolor(_DASH_ELEV)
+    if week:
+        _stack_engagement_bars(
+            ax1, week, [str(r.get("day") or "")[:3] for r in week],
+            "Activity by Day of Week",
+        )
+    if hours:
+        _stack_engagement_bars(
+            ax2, hours, [str(int(r.get("hour") or 0)).zfill(2) for r in hours],
+            "Activity by Hour of Day",
+        )
+    fig.subplots_adjust(top=0.78, bottom=0.16, wspace=0.22, left=0.06, right=0.98)
+    return _chart_buf(fig, tight=False)
+
+
 def chart_top_words(word_stats: dict):
     words = list(reversed((word_stats.get("top_words") or [])[:15]))
     if not words:
@@ -1047,6 +1168,11 @@ def build_cover(profile: dict, S, platform: str = "facebook") -> list:
         contents = (
             "Contents: Profile · Engagement Mix · Timeline · X Posts "
             "(Reply · Repost · Like · View)"
+        )
+    elif platform == "threads":
+        contents = (
+            "Contents: Profile · Co-Comment Matrix · Force Graph · All Interactors · Top-7 · "
+            "Profile Post Feed · Comment Samples · Timeline · Activity Timeline · Face Clusters"
         )
     else:
         contents = (
@@ -2186,6 +2312,64 @@ def build_activity_timeline(activity: dict | None, S) -> list:
     return story
 
 
+def build_engagement_activity_timeline(activity: dict | None, S) -> list:
+    """Dashboard Activity Timeline: stacked Like / Comment / Repost."""
+    story = [
+        Paragraph("08 / ACTIVITY TIMELINE", S["section"]),
+    ]
+    m = _meaning_para("08_engagement", S)
+    if m:
+        story.append(m)
+    story.append(Spacer(1, 2 * mm))
+    if not activity:
+        story.append(Paragraph("No engagement activity metrics available.", S["body"]))
+        story.append(PageBreak())
+        return story
+
+    total_like = int(activity.get("total_like") or 0)
+    total_comment = int(activity.get("total_comment") or 0)
+    total_repost = int(activity.get("total_repost") or 0)
+    stats = Table(
+        [[
+            _dashboard_stat_box("LIKE", total_like, S),
+            _dashboard_stat_box("COMMENT", total_comment, S),
+            _dashboard_stat_box("REPOST", total_repost, S),
+        ]],
+        colWidths=[54 * mm, 54 * mm, 54 * mm],
+    )
+    stats.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        ("BACKGROUND", (0, 0), (-1, -1), C_DASH_BG),
+    ]))
+
+    card_rows = [[stats]]
+    img = _pdf_image(chart_engagement_activity_day(activity), width_mm=162)
+    if img:
+        card_rows.append([Spacer(1, 3 * mm)])
+        card_rows.append([img])
+    img2 = _pdf_image(chart_engagement_activity_weekday_hour(activity), width_mm=162)
+    if img2:
+        card_rows.append([Spacer(1, 2 * mm)])
+        card_rows.append([img2])
+    card = Table(card_rows, colWidths=[166 * mm])
+    card.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), C_DASH_BG),
+        ("BOX", (0, 0), (-1, -1), 0.8, C_DASH_BORDER),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (0, 0), 8),
+        ("BOTTOMPADDING", (0, -1), (-1, -1), 8),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+    ]))
+    story.append(card)
+    story.append(PageBreak())
+    return story
+
+
 def build_word_analysis(word_stats: dict | None, S) -> list:
     story = [
         Paragraph("09 / WORD ANALYSIS", S["section"]),
@@ -2463,6 +2647,9 @@ def gather_report_data(profile_id: int, db_file: str, platform: str = "facebook"
     if platform == "telegram":
         data.update(_telegram_text_metrics(db_file, profile_id))
         data["executive_summary"] = compose_executive_summary(data)
+    elif platform == "threads":
+        from core.engagement_metrics import get_activity_metrics
+        data["activity"] = get_activity_metrics(db_file, profile_id)
     return data
 
 
@@ -2527,6 +2714,9 @@ def generate_report(
             story.extend(build_word_analysis(data.get("word_stats"), S))
             story.extend(build_word_searcher(data.get("word_searches"), S))
             story.extend(build_faces(data["faces"], S, face_sec="11", disc_sec="12"))
+        elif platform == "threads":
+            story.extend(build_engagement_activity_timeline(data.get("activity"), S))
+            story.extend(build_faces(data["faces"], S, face_sec="09", disc_sec="10"))
         else:
             story.extend(build_faces(data["faces"], S, face_sec="08", disc_sec="09"))
 
