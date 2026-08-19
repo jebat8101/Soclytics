@@ -26,6 +26,7 @@ cp .env.example .env
 `.env` already sets `PORT=5002`. Optional Telegram MTProto (full comments / reactors):
 
 ```bash
+python3 scripts/telegram-login.py
 # Get keys from https://my.telegram.org
 TG_API_ID=12345
 TG_API_HASH=your_hash_here
