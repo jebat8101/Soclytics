@@ -14,7 +14,7 @@ Local-first multi-platform SOCMINT — Facebook, Instagram, Reddit, Threads, Tel
 
 ```bash
 git clone https://github.com/jebat8101/Soclytics.git
-cd Soclytics.git
+cd Soclytics
 ```
 
 ## 2. Configure
