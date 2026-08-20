@@ -1,4 +1,4 @@
-# Soclytics
+What is Soclytics?
 
 Soclytics is a local-first, dependency-light multi-platform SOCMINT platform. It runs six separate mini-apps — Facebook, Instagram, Reddit, Threads, Telegram, and X — each with its own cookies, database, and investigation history.
 
