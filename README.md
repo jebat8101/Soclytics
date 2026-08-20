@@ -1,16 +1,3 @@
-# Soclytics
-
-Soclytics is a local-first, dependency-light multi-platform SOCMINT platform. It runs six separate mini-apps — Facebook, Instagram, Reddit, Threads, Telegram, and X — each with its own cookies, database, and investigation history.
-
-Each platform performs the same core workflow — data gathering, interaction mapping, network visualization, and (where applicable) face clustering — without requiring any AI model, Docker container, or cloud service.
-
-Everything runs on your local machine. No GPU required. No model downloads. No official platform APIs..
-
-**Recommended install: Docker** (host port **5002**). First build compiles dlib and takes several minutes.
-
-
----
-
 ## What is Soclytics?
 
 Soclytics is a local-first, dependency-light multi-platform SOCMINT platform. It runs six separate mini-apps — **Facebook**, **Instagram**, **Reddit**, **Threads**, **Telegram**, and **X** — each with its own cookies, database, and investigation history.
