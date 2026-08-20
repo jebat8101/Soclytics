@@ -8,6 +8,17 @@ Everything runs on your local machine. No GPU required. No model downloads. No o
 
 **Recommended install: Docker** (host port **5002**). First build compiles dlib and takes several minutes.
 
+## Platforms · Mini-Apps
+
+### Targets (profile-only)
+
+| Platform | Accepted targets | Rejected |
+|---|---|---|
+| Facebook | Profile URL | — |
+| Instagram | `https://www.instagram.com/<user>/`, `@user`, or bare `user` | Stories, hashtags, locations |
+| Reddit | `https://www.reddit.com/user/<name>/` or `u/<name>` | Subreddits, search queries |
+| Threads | `https://www.threads.com/@<user>/`, `@user`, or bare `user` | Individual post URLs, search |
+
 ### Per-platform gather
 
 - **Facebook** — about, photos, reels, text posts + comments; Like / Comment / Repost from post footer (**Share → Repost**); face clustering
