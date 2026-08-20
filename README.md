@@ -8,6 +8,19 @@ Everything runs on your local machine. No GPU required. No model downloads. No o
 
 **Recommended install: Docker** (host port **5002**). First build compiles dlib and takes several minutes.
 
+### Per-platform gather
+
+- **Facebook** — about, photos, reels, text posts + comments; Like / Comment / Repost from post footer (**Share → Repost**); face clustering
+- **Instagram** — about, posts, reels + comments; Like / Comment / Repost from post page (Repost 0 unless visible); face clustering
+- **Reddit** — about, submissions + comments on those submissions; **score → Like**, Comment count, Repost 0; **no** face step
+- **Threads** — about, posts/threads + Like / Comment / Repost from displayed counts; face clustering on image posts
+- **Telegram** — posts/media + comments; **reactions → Like**, **forwards → Repost**; MTProto or public preview
+- **X** — posts + replies; Like / Comment / Repost from post page; **Views (X-only)**
+
+Auth is operator cookies + SeleniumBase only (no Graph API / no `praw`).
+
+---
+
 ## Prerequisites
 
 - Linux (Ubuntu 22.04+ recommended)
