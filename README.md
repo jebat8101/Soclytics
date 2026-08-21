@@ -6,7 +6,7 @@ Each platform performs the same core workflow — data gathering, interaction ma
 
 Everything runs on your local machine. No GPU required. No model downloads. No official platform APIs.
 
-<img src="app/icons/demo.png" alt="Soclytics Web UI" width="100%"/>
+<img src="app/icons/soclytics.png" alt="Soclytics Web UI" width="100%"/>
 
 
 ---
