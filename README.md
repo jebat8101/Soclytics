@@ -107,30 +107,6 @@ Each platform has its own cookies/session, SQLite DB, and investigation history.
 
 
 
-## Platforms · Mini-Apps
-
-### Targets (profile-only)
-
-| Platform | Accepted targets | Rejected |
-|---|---|---|
-| Facebook | Profile URL | — |
-| Instagram | `https://www.instagram.com/<user>/`, `@user`, or bare `user` | Stories, hashtags, locations |
-| Reddit | `https://www.reddit.com/user/<name>/` or `u/<name>` | Subreddits, search queries |
-| Threads | `https://www.threads.com/@<user>/`, `@user`, or bare `user` | Individual post URLs, search |
-
-### Per-platform gather
-
-- **Facebook** — about, photos, reels, text posts + comments; Like / Comment / Repost from post footer (**Share → Repost**); face clustering
-- **Instagram** — about, posts, reels + comments; Like / Comment / Repost from post page (Repost 0 unless visible); face clustering
-- **Reddit** — about, submissions + comments on those submissions; **score → Like**, Comment count, Repost 0; **no** face step
-- **Threads** — about, posts/threads + Like / Comment / Repost from displayed counts; face clustering on image posts
-- **Telegram** — posts/media + comments; **reactions → Like**, **forwards → Repost**; MTProto or public preview
-- **X** — posts + replies; Like / Comment / Repost from post page; **Views (X-only)**
-
-Auth is operator cookies + SeleniumBase only (no Graph API / no `praw`).
-
----
-
 ## Prerequisites
 
 - Linux (Ubuntu 22.04+ recommended)
