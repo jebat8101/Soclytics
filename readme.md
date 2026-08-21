@@ -14,7 +14,7 @@
 
 **Local-first multi-platform SOCMINT — Facebook, Instagram, Reddit, and Threads. No LLM, no Docker, no cloud dependency. For the AI-powered version see [birdy-edwards](https://github.com/jeet-ganguly/birdy-edwards).**
 
-[Installation](#installation) · [Platforms](#platforms--mini-apps) · [Features](#features) · [Troubleshooting](#troubleshooting) · [Disclaimer](#️-disclaimer) · [Contributing](#contributing)
+[Installation](#installation) · [Platforms](#platforms--mini-apps) · [Features](#features) · [Feature reference](docs/FEATURES.md) · [Troubleshooting](#troubleshooting) · [Disclaimer](#️-disclaimer) · [Contributing](#contributing)
 
 </div>
 
@@ -79,6 +79,7 @@ Auth is operator cookies + SeleniumBase only (no Graph API / no `praw`).
 ## Features
 
 - 🔍 **Profile data gathering** — Automated collection of posts/submissions, photos/reels (FB/IG), about data, comments, interactor names and profile links
+- 📅 **Scan depth + date range** — Light / Medium / **Deep (unlimited)**; optional From/To filter after collection
 - 📊 **Like / Comment / Repost counts** — All platforms store Like, Comment, and Repost by parsing the post page (X.com pattern); named likers/sharers are not collected
 - 📈 **Engagement dashboards** — Home sums, post metrics, and Activity Timeline (stacked Like / Comment / Repost); **Views stay X-only**
 - 📊 **Frequency scoring** — Weighted interaction frequency ranking across gathered content
@@ -91,9 +92,12 @@ Auth is operator cookies + SeleniumBase only (no Graph API / no `praw`).
 - 🌳 **Face cluster tree** — Frequency-cascade hierarchy of detected persons (FB/IG)
 - 🎯 **Top 7 priority targets** — Highest-frequency interactors with about-data cards where available
 - 📋 **About data cards** — Target and Top 7 interactor profile fields
+- 📄 **PDF / JSON reports** — Full local intelligence report export from analysis dashboards
 - 🗑️ **Investigation management** — Delete any investigation and its gathered data from the home page
 - 🌙 **Dark / light theme** — Full theme toggle across all dashboard components
 - 🤖 **Zero LLM dependency** — No Ollama, no model download, no GPU needed
+
+Full feature reference (platforms matrix, limits): [`docs/FEATURES.md`](docs/FEATURES.md)
 
 ---
 

@@ -10,6 +10,8 @@ if os.name != 'nt':
     except FileNotFoundError:
         pass
 
+from core.date_filters import filter_dated_items
+from core.depth import cap_label, has_room, normalize_cap, take_cap
 from platforms.facebook.constants import COOKIE_FILE
 PROFILE_URL  = "REDACTED"
 MAX_REELS    = 10
@@ -238,10 +240,23 @@ profiles.forEach(function(div) {
 return Object.values(seen);
 """
 
+DATE_JS = """
+var months = 'January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec';
+var datePattern = new RegExp('^(\\\\d{1,2}\\\\s+(' + months + ')(\\\\s+\\\\d{4})?|(' + months + ')\\\\s+\\\\d{1,2},?(\\\\s+\\\\d{4})?|\\\\d{1,2}\\\\s+(' + months + ')\\\\s+at\\\\s+\\\\d{2}:\\\\d{2})$');
+var relPattern = /^(yesterday|moments? ago|just now|\\d+\\s+(second|minute|min|hour|hr|day|week|month|year)s?\\s+ago)$/i;
+var spans = document.querySelectorAll('span');
+for (var i = 0; i < spans.length; i++) {
+    var t = (spans[i].innerText || '').trim();
+    if (datePattern.test(t) || relPattern.test(t) || /^\\d+[smhdwy]$/.test(t)) return t;
+}
+return null;
+"""
+
 
 def phase1_collect_reels(sb,PROFILE_URL=PROFILE_URL,MAX_REELS=MAX_REELS):
+    cap = normalize_cap(MAX_REELS)
     print("\n" + "═"*65)
-    print("PHASE 1 — Collecting reel URLs")
+    print(f"PHASE 1 — Collecting reel URLs (max={cap_label(cap)})")
     print("═"*65)
 
     reels_url = get_reels_url(PROFILE_URL)
@@ -253,9 +268,9 @@ def phase1_collect_reels(sb,PROFILE_URL=PROFILE_URL,MAX_REELS=MAX_REELS):
     seen       = set()
     scroll_n   = 0
     no_change  = 0
-    MAX_SCROLLS = 60
+    max_scrolls = 2000 if cap is None else 60
 
-    while len(reel_links) < MAX_REELS and scroll_n < MAX_SCROLLS:
+    while has_room(len(reel_links), cap) and scroll_n < max_scrolls:
 
         found = sb.execute_script(
             f"(function(){{ {COLLECT_REEL_LINKS_JS} }})()"
@@ -267,12 +282,12 @@ def phase1_collect_reels(sb,PROFILE_URL=PROFILE_URL,MAX_REELS=MAX_REELS):
             seen.add(href)
             reel_links.append(href)
             print(f"  [{len(reel_links)}] {href}")
-            if len(reel_links) >= MAX_REELS:
+            if not has_room(len(reel_links), cap):
                 break
 
         print(f"  scroll #{scroll_n}  total: {len(reel_links)}")
 
-        if len(reel_links) >= MAX_REELS:
+        if not has_room(len(reel_links), cap):
             break
 
         prev = len(reel_links)
@@ -298,6 +313,7 @@ def phase1_collect_reels(sb,PROFILE_URL=PROFILE_URL,MAX_REELS=MAX_REELS):
             print("  No new reels for 8 scrolls — stopping")
             break
 
+    reel_links = take_cap(reel_links, cap)
     print(f"\n  Total reels found: {len(reel_links)}")
     return reel_links
 
@@ -349,6 +365,7 @@ def phase2_scrape_reel(sb, reel_url, idx, total):
 
     sb.open(reel_url)
     time.sleep(8)
+    date = sb.execute_script(f"(function(){{ {DATE_JS} }})()")
 
     # Click comment icon
     print("    [comments] Clicking comment icon...")
@@ -377,12 +394,13 @@ def phase2_scrape_reel(sb, reel_url, idx, total):
 
     return {
         'reel_url': reel_url,
+        'date': date,
         'comments': comments,
         **counts,
     }
 
 
-def main(PROFILE_URL=PROFILE_URL,MAX_REELS=MAX_REELS):
+def main(PROFILE_URL=PROFILE_URL, MAX_REELS=MAX_REELS, START_DATE=None, END_DATE=None):
     results = []
 
     with SB(uc=True, headless=False, xvfb=True,
@@ -410,6 +428,8 @@ def main(PROFILE_URL=PROFILE_URL,MAX_REELS=MAX_REELS):
                     'error':    str(e)
                 })
             time.sleep(3)
+
+    results = filter_dated_items(results, START_DATE, END_DATE)
 
     # Save
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:

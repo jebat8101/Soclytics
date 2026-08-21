@@ -31,6 +31,8 @@ if os.name != 'nt':
 
 from platforms.instagram.about_sb import login, _require_cookies, _looks_like_login_page
 from core.counts import as_int
+from core.date_filters import filter_dated_items
+from core.depth import cap_label, has_room, normalize_cap, take_cap
 
 OUTPUT_FILE = "ig_posts.json"
 
@@ -50,6 +52,7 @@ def _clean_post_url(href: str):
 
 def collect_post_urls_from_html(html: str, max_posts: int = 10) -> list:
     """Extract unique /p/ URLs from profile HTML (grid anchors + JSON)."""
+    cap = normalize_cap(max_posts)
     seen = []
     found = set()
 
@@ -60,7 +63,7 @@ def collect_post_urls_from_html(html: str, max_posts: int = 10) -> list:
         if url and url not in found:
             found.add(url)
             seen.append(url)
-            if len(seen) >= max_posts:
+            if not has_room(len(seen), cap):
                 return seen
 
     for m in re.finditer(r'"shortcode"\s*:\s*"([A-Za-z0-9_-]+)"', html):
@@ -68,10 +71,10 @@ def collect_post_urls_from_html(html: str, max_posts: int = 10) -> list:
         if url not in found:
             found.add(url)
             seen.append(url)
-            if len(seen) >= max_posts:
+            if not has_room(len(seen), cap):
                 return seen
 
-    return seen[:max_posts]
+    return take_cap(seen, cap)
 
 
 def _meta_content(html: str, prop=None, name=None):
@@ -239,7 +242,8 @@ return result;
 
 
 def phase1_collect_urls(sb, profile_url: str, max_posts: int) -> list:
-    print(f"\nPHASE 1 — Collecting up to {max_posts} post URLs")
+    cap = normalize_cap(max_posts)
+    print(f"\nPHASE 1 — Collecting up to {cap_label(cap)} post URLs")
     sb.open(profile_url.rstrip('/') + '/')
     time.sleep(5)
     html = sb.get_page_source()
@@ -251,25 +255,35 @@ def phase1_collect_urls(sb, profile_url: str, max_posts: int) -> list:
 
     urls = []
     found = set()
-    for _step in range(8):
+    last_len = -1
+    stagnant = 0
+    max_rounds = 2000 if cap is None else 8
+    for _step in range(max_rounds):
         js_urls = sb.execute_script(f"(function(){{ {COLLECT_POSTS_JS} }})()") or []
         for u in js_urls:
             clean = _clean_post_url(u)
             if clean and clean not in found:
                 found.add(clean)
                 urls.append(clean)
-        if len(urls) >= max_posts:
+        if not has_room(len(urls), cap):
             break
+        if len(urls) == last_len:
+            stagnant += 1
+            if stagnant >= 3:
+                break
+        else:
+            stagnant = 0
+        last_len = len(urls)
         sb.execute_script("(function(){ window.scrollBy(0, 1200); })()")
         time.sleep(2)
 
-    if len(urls) < max_posts:
-        for u in collect_post_urls_from_html(html, max_posts):
+    if has_room(len(urls), cap):
+        for u in collect_post_urls_from_html(html, cap):
             if u not in found:
                 found.add(u)
                 urls.append(u)
 
-    urls = urls[:max_posts]
+    urls = take_cap(urls, cap)
     print(f"   Found {len(urls)} posts")
     return urls
 
@@ -304,15 +318,16 @@ def phase2_scrape_post(sb, post_url: str, idx: int, total: int) -> dict:
     return result
 
 
-def main(PROFILE_URL: str, MAX_POSTS: int = 10):
+def main(PROFILE_URL: str, MAX_POSTS: int = 10, START_DATE=None, END_DATE=None):
     """
     Live scrape Instagram posts → ``ig_posts.json``.
 
     NOTE: Selectors may need live tuning against authorized sessions.
     """
+    cap = normalize_cap(MAX_POSTS)
     print("\n" + "═" * 65)
     print("Instagram Posts Scraper")
-    print(f"Profile: {PROFILE_URL}  max={MAX_POSTS}")
+    print(f"Profile: {PROFILE_URL}  max={cap_label(cap)}")
     print("═" * 65)
 
     _require_cookies()
@@ -320,7 +335,7 @@ def main(PROFILE_URL: str, MAX_POSTS: int = 10):
 
     with SB(uc=True, headless=False, xvfb=True, window_size="1280,900") as sb:
         login(sb)
-        post_links = phase1_collect_urls(sb, PROFILE_URL, MAX_POSTS)
+        post_links = phase1_collect_urls(sb, PROFILE_URL, cap)
 
         print(f"\n{'═'*65}")
         print(f"PHASE 2 — Scraping {len(post_links)} posts")
@@ -341,6 +356,8 @@ def main(PROFILE_URL: str, MAX_POSTS: int = 10):
                     'error': str(e),
                 })
             time.sleep(2)
+
+    results = filter_dated_items(results, START_DATE, END_DATE)
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)

@@ -28,6 +28,8 @@ if os.name != 'nt':
     except FileNotFoundError:
         pass
 
+from core.date_filters import filter_dated_items
+from core.depth import cap_label, has_room, normalize_cap, take_cap
 from platforms.instagram.about_sb import login, _require_cookies, _looks_like_login_page
 from platforms.instagram.posts_sb import (
     _iso_date_from_html,
@@ -57,6 +59,7 @@ def _clean_reel_url(href: str):
 
 
 def collect_reel_urls_from_html(html: str, max_reels: int = 10) -> list:
+    cap = normalize_cap(max_reels)
     seen = []
     found = set()
     for m in re.finditer(
@@ -66,9 +69,9 @@ def collect_reel_urls_from_html(html: str, max_reels: int = 10) -> list:
         if url and url not in found:
             found.add(url)
             seen.append(url)
-            if len(seen) >= max_reels:
+            if not has_room(len(seen), cap):
                 return seen
-    return seen[:max_reels]
+    return take_cap(seen, cap)
 
 
 def parse_reel_from_html(html: str, reel_url: str) -> dict:
@@ -110,7 +113,8 @@ def _reels_tab_url(profile_url: str) -> str:
 
 
 def phase1_collect_reels(sb, profile_url: str, max_reels: int) -> list:
-    print(f"\nPHASE 1 — Collecting up to {max_reels} reel URLs")
+    cap = normalize_cap(max_reels)
+    print(f"\nPHASE 1 — Collecting up to {cap_label(cap)} reel URLs")
     urls = []
     found = set()
 
@@ -124,7 +128,10 @@ def phase1_collect_reels(sb, profile_url: str, max_reels: int) -> list:
                 "session expired or cookies invalid."
             )
 
-        for _step in range(6):
+        last_len = -1
+        stagnant = 0
+        max_rounds = 2000 if cap is None else 6
+        for _step in range(max_rounds):
             js_urls = sb.execute_script(
                 f"(function(){{ {COLLECT_REELS_JS} }})()"
             ) or []
@@ -133,20 +140,27 @@ def phase1_collect_reels(sb, profile_url: str, max_reels: int) -> list:
                 if clean and clean not in found:
                     found.add(clean)
                     urls.append(clean)
-            if len(urls) >= max_reels:
+            if not has_room(len(urls), cap):
                 break
+            if len(urls) == last_len:
+                stagnant += 1
+                if stagnant >= 3:
+                    break
+            else:
+                stagnant = 0
+            last_len = len(urls)
             sb.execute_script("(function(){ window.scrollBy(0, 1200); })()")
             time.sleep(2)
 
-        for u in collect_reel_urls_from_html(html, max_reels):
+        for u in collect_reel_urls_from_html(html, cap):
             if u not in found:
                 found.add(u)
                 urls.append(u)
 
-        if len(urls) >= max_reels:
+        if not has_room(len(urls), cap):
             break
 
-    urls = urls[:max_reels]
+    urls = take_cap(urls, cap)
     print(f"   Found {len(urls)} reels")
     return urls
 
@@ -181,15 +195,16 @@ def phase2_scrape_reel(sb, reel_url: str, idx: int, total: int) -> dict:
     return result
 
 
-def main(PROFILE_URL: str, MAX_REELS: int = 10):
+def main(PROFILE_URL: str, MAX_REELS: int = 10, START_DATE=None, END_DATE=None):
     """
     Live scrape Instagram reels → ``ig_reels.json``.
 
     NOTE: Selectors may need live tuning against authorized sessions.
     """
+    cap = normalize_cap(MAX_REELS)
     print("\n" + "═" * 65)
     print("Instagram Reels Scraper")
-    print(f"Profile: {PROFILE_URL}  max={MAX_REELS}")
+    print(f"Profile: {PROFILE_URL}  max={cap_label(cap)}")
     print("═" * 65)
 
     _require_cookies()
@@ -197,7 +212,7 @@ def main(PROFILE_URL: str, MAX_REELS: int = 10):
 
     with SB(uc=True, headless=False, xvfb=True, window_size="1280,900") as sb:
         login(sb)
-        reel_links = phase1_collect_reels(sb, PROFILE_URL, MAX_REELS)
+        reel_links = phase1_collect_reels(sb, PROFILE_URL, cap)
 
         print(f"\n{'═'*65}")
         print(f"PHASE 2 — Scraping {len(reel_links)} reels")
@@ -216,6 +231,8 @@ def main(PROFILE_URL: str, MAX_REELS: int = 10):
                     'error': str(e),
                 })
             time.sleep(2)
+
+    results = filter_dated_items(results, START_DATE, END_DATE)
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)

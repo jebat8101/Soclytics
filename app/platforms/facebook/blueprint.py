@@ -11,6 +11,7 @@ from flask import (
 )
 
 from core.browser import load_cookies_pickle, save_cookies_pickle
+from core.date_filters import normalize_date_range
 from core.paths import safe_under
 from platforms.facebook.constants import (
     BASE_DIR, COOKIE_FILE, DB_FILE, ICONS_DIR, FACE_DIR,
@@ -384,22 +385,39 @@ def start_pipeline():
     data        = request.get_json(silent=True) or {}
     profile_url = data.get('profile_url', '').strip()
     depth       = data.get('depth', 'light').strip().lower()
+    start_date  = (data.get('start_date') or '').strip() or None
+    end_date    = (data.get('end_date') or '').strip() or None
 
     if not profile_url:
         return jsonify({'ok': False, 'error': 'profile_url required'}), 400
     if depth not in DEPTH_LIMITS:
         depth = 'light'
+    try:
+        start_date, end_date = normalize_date_range(start_date, end_date)
+    except ValueError as e:
+        return jsonify({'ok': False, 'error': str(e)}), 400
 
     status = _check_cookie_status_fast()
     if not status['exists'] or status['count'] == 0:
         return jsonify({'ok': False,
                         'error': 'Cookie file not found — import cookies first'}), 400
 
-    reset_pipeline(pipeline_state, PIPELINE_STEPS, profile_url=profile_url, depth=depth)
+    reset_pipeline(
+        pipeline_state,
+        PIPELINE_STEPS,
+        profile_url=profile_url,
+        depth=depth,
+        start_date=start_date,
+        end_date=end_date,
+    )
     pipeline_state['running']    = True
     pipeline_state['started_at'] = datetime.now().isoformat()
 
-    threading.Thread(target=_run_pipeline, args=(profile_url, depth), daemon=True).start()
+    threading.Thread(
+        target=_run_pipeline,
+        args=(profile_url, depth, start_date, end_date),
+        daemon=True,
+    ).start()
     return jsonify({'ok': True, 'message': 'Pipeline started'})
 
 
@@ -410,6 +428,8 @@ def pipeline_status():
         'running':     pipeline_state['running'],
         'profile_url': pipeline_state['profile_url'],
         'depth':       pipeline_state['depth'],
+        'start_date':  pipeline_state['start_date'],
+        'end_date':    pipeline_state['end_date'],
         'steps':       pipeline_state['steps'],
         'error':       pipeline_state['error'],
         'profile_id':  pipeline_state['profile_id'],
@@ -418,7 +438,7 @@ def pipeline_status():
     })
 
 
-def _run_pipeline(profile_url, depth):
+def _run_pipeline(profile_url, depth, start_date=None, end_date=None):
     import multiprocessing, random
 
     limits       = DEPTH_LIMITS[depth]
@@ -444,17 +464,32 @@ def _run_pipeline(profile_url, depth):
         )
         p2 = multiprocessing.Process(
             target=_staggered,
-            args=(2, scrape_photos, {'PROFILE_URL': profile_url, 'MAX_PHOTOS': photos_limit}),
+            args=(2, scrape_photos, {
+                'PROFILE_URL': profile_url,
+                'MAX_PHOTOS': photos_limit,
+                'START_DATE': start_date,
+                'END_DATE': end_date,
+            }),
             name='scrape-photos'
         )
         p3 = multiprocessing.Process(
             target=_staggered,
-            args=(4, scrape_reels, {'PROFILE_URL': profile_url, 'MAX_REELS': reels_limit}),
+            args=(4, scrape_reels, {
+                'PROFILE_URL': profile_url,
+                'MAX_REELS': reels_limit,
+                'START_DATE': start_date,
+                'END_DATE': end_date,
+            }),
             name='scrape-reels'
         )
         p4 = multiprocessing.Process(
             target=_staggered,
-            args=(6, scrape_posts, {'profile_url': profile_url, 'max_posts': posts_limit}),
+            args=(6, scrape_posts, {
+                'profile_url': profile_url,
+                'max_posts': posts_limit,
+                'start_date': start_date,
+                'end_date': end_date,
+            }),
             name='scrape-posts'
         )
 

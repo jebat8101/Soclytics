@@ -16,6 +16,8 @@ from urllib.parse import urljoin
 
 from seleniumbase import SB
 
+from core.date_filters import filter_dated_items
+
 from platforms.threads.about_sb import (
     _looks_like_login_page,
     _nested_lookup,
@@ -796,6 +798,32 @@ def phase2_scrape_post(
         result['likes'] = []
         result['reposts'] = []
 
+    # Engagement counters in Threads are sometimes missing from the parsed
+    # hydration payload (thread_items). When that happens, keep the UI
+    # consistent by deriving Like/Comment/Repost counts from what we
+    # successfully harvested via the Threads dialogs / expanded DOM.
+    #
+    # These counts are used by:
+    # - the dashboard post cards (like/reply/repost)
+    # - the timeline via DB engagement tables
+    if harvest:
+        if result.get('like_count') in (None, ''):
+            result['like_count'] = len(result.get('likes') or [])
+        if result.get('repost_count') in (None, ''):
+            result['repost_count'] = len(result.get('reposts') or [])
+        if result.get('reply_count') in (None, ''):
+            # COUNT_REPLY_JS counts "codes" across the page, and includes the
+            # main post itself; direct replies count is therefore (total - 1).
+            try:
+                total_codes = int(
+                    sb.execute_script(f'(function(){{ {COUNT_REPLY_JS} }})()') or 0
+                )
+                result['reply_count'] = max(0, total_codes - 1)
+            except Exception:
+                # Fallback: at least surface the number of harvested reply
+                # interactors, even if it may undercount.
+                result['reply_count'] = len(result.get('replies') or [])
+
     print(f"    date    : {result.get('date')}")
     print(f"    caption : {(result.get('caption') or '')[:60]}")
     print(f"    replies : {len(result.get('replies') or [])}")
@@ -804,7 +832,7 @@ def phase2_scrape_post(
     return result
 
 
-def main(PROFILE_URL: str, MAX_POSTS: int = 10):
+def main(PROFILE_URL: str, MAX_POSTS: int = 10, START_DATE=None, END_DATE=None):
     print('\n' + '═' * 65)
     print('Threads Posts Scraper')
     print(f'Profile: {PROFILE_URL}  max={MAX_POSTS}')
@@ -855,6 +883,8 @@ def main(PROFILE_URL: str, MAX_POSTS: int = 10):
                     }
                 )
             time.sleep(2)
+
+    results = filter_dated_items(results, START_DATE, END_DATE)
 
     with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
         json.dump(results, f, ensure_ascii=False, indent=2)

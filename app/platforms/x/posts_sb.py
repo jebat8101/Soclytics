@@ -13,6 +13,9 @@ from urllib.parse import urlparse
 
 from seleniumbase import SB
 
+from core.date_filters import filter_dated_items
+from core.depth import cap_label, has_room, normalize_cap, take_cap
+
 from platforms.x.about_sb import _looks_like_login_page, _require_cookies, login
 
 if os.name != 'nt':
@@ -447,7 +450,8 @@ def parse_tweet_from_html(html: str, status_url: str) -> dict:
         }
 
 
-def phase1_collect_timeline(sb, profile_url: str, max_posts: int) -> list[dict]:
+def phase1_collect_timeline(sb, profile_url: str, max_posts: int | None = 10) -> list[dict]:
+    cap = normalize_cap(max_posts)
     handle = _handle_from_url(profile_url)
     sb.open(profile_url)
     time.sleep(6)
@@ -466,15 +470,18 @@ def phase1_collect_timeline(sb, profile_url: str, max_posts: int) -> list[dict]:
     by_url = {}
     last_len = -1
     stagnant = 0
-    for _ in range(max(24, int(max_posts) + 8)):
-        for item in extract_tweets_via_dom(sb, handle, max_posts, skip_ids=skip_ids):
+    # Unlimited Deep scrolls until idle; bounded depths keep a modest round budget.
+    max_rounds = 2000 if cap is None else max(24, int(cap) + 8)
+    page_batch = 40 if cap is None else int(cap)
+    for _ in range(max_rounds):
+        for item in extract_tweets_via_dom(sb, handle, page_batch, skip_ids=skip_ids):
             url = item.get('post_url')
             tid = status_id_from_url(url)
             if tid and tid in skip_ids:
                 continue
             if url and url not in by_url:
                 by_url[url] = item
-        if len(by_url) >= max_posts:
+        if not has_room(len(by_url), cap):
             break
         if len(by_url) == last_len:
             stagnant += 1
@@ -488,7 +495,7 @@ def phase1_collect_timeline(sb, profile_url: str, max_posts: int) -> list[dict]:
         except Exception:
             pass
         time.sleep(2)
-    return list(by_url.values())[:max_posts]
+    return take_cap(list(by_url.values()), cap)
 
 
 def phase2_scrape_post(sb, status_url: str) -> dict:
@@ -502,10 +509,11 @@ def phase2_scrape_post(sb, status_url: str) -> dict:
     return parse_tweet_from_html(html, status_url)
 
 
-def main(PROFILE_URL: str = 'https://x.com/example', MAX_POSTS: int = 10):
+def main(PROFILE_URL: str = 'https://x.com/example', MAX_POSTS: int | None = 10, START_DATE=None, END_DATE=None):
+    cap = normalize_cap(MAX_POSTS)
     print('\n' + '═' * 65)
     print('X Posts Scraper (counts only)')
-    print(f'Profile: {PROFILE_URL}  max={MAX_POSTS}')
+    print(f'Profile: {PROFILE_URL}  max={cap_label(cap)}')
     print('═' * 65)
 
     _require_cookies()
@@ -522,17 +530,19 @@ def main(PROFILE_URL: str = 'https://x.com/example', MAX_POSTS: int = 10):
             raise RuntimeError(
                 'X login page detected — cookies missing or session expired.'
             )
-        items = phase1_collect_timeline(sb, PROFILE_URL, MAX_POSTS)
+        items = phase1_collect_timeline(sb, PROFILE_URL, cap)
         print(f'  Timeline DOM collected {len(items)} tweets')
         filled = sum(1 for i in items if i.get('caption') or i.get('like_count') is not None)
         if not items:
             handle = _handle_from_url(PROFILE_URL)
             page_html = sb.get_page_source()
             skip_ids = pinned_tweet_ids_from_html(page_html)
+            fetch_n = 10**9 if cap is None else (cap + len(skip_ids))
             urls = [
-                u for u in collect_status_urls_from_html(page_html, handle, MAX_POSTS + len(skip_ids))
+                u for u in collect_status_urls_from_html(page_html, handle, fetch_n)
                 if status_id_from_url(u) not in skip_ids
-            ][:MAX_POSTS]
+            ]
+            urls = take_cap(urls, cap)
             print(f'  Fallback: {len(urls)} status URLs from HTML')
             for i, url in enumerate(urls, 1):
                 print(f'  [{i}/{len(urls)}] {url}')
@@ -544,6 +554,8 @@ def main(PROFILE_URL: str = 'https://x.com/example', MAX_POSTS: int = 10):
                     continue
                 print(f'  [{i}/{len(items)}] {item.get("post_url")}')
                 items[i - 1] = phase2_scrape_post(sb, item['post_url'])
+
+    items = filter_dated_items(items, START_DATE, END_DATE)
 
     with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
         json.dump(items, f, ensure_ascii=False, indent=2)

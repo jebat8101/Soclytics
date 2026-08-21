@@ -10,6 +10,8 @@ if os.name != 'nt':
     except FileNotFoundError:
         pass
 
+from core.date_filters import filter_dated_items
+from core.depth import cap_label, has_room, normalize_cap, take_cap
 from platforms.facebook.constants import COOKIE_FILE
 OUTPUT_FILE   = "fb_posts.json"
 
@@ -426,8 +428,9 @@ return Object.values(seen);
 #  PHASE 1 — Collect /posts/ URLs
 
 def phase1_collect_urls(sb, profile_url, max_posts):
+    cap = normalize_cap(max_posts)
     print("\n" + "═"*65)
-    print("PHASE 1 — Collecting post URLs")
+    print(f"PHASE 1 — Collecting post URLs (max={cap_label(cap)})")
     print("═"*65)
 
     sb.open(profile_url)
@@ -437,9 +440,9 @@ def phase1_collect_urls(sb, profile_url, max_posts):
     seen       = set()
     scroll_n   = 0
     no_change  = 0
-    MAX_SCROLLS = 60
+    max_scrolls = 2000 if cap is None else 60
 
-    while len(post_links) < max_posts and scroll_n < MAX_SCROLLS:
+    while has_room(len(post_links), cap) and scroll_n < max_scrolls:
         found = sb.execute_script(
             f"(function(){{ {COLLECT_POSTS_JS} }})()"
         ) or []
@@ -450,12 +453,12 @@ def phase1_collect_urls(sb, profile_url, max_posts):
             seen.add(href)
             post_links.append(href)
             print(f" [{len(post_links)}] {href}")
-            if len(post_links) >= max_posts:
+            if not has_room(len(post_links), cap):
                 break
 
         print(f"  scroll #{scroll_n}  total: {len(post_links)}")
 
-        if len(post_links) >= max_posts:
+        if not has_room(len(post_links), cap):
             break
 
         prev = len(post_links)
@@ -488,6 +491,7 @@ def phase1_collect_urls(sb, profile_url, max_posts):
             final_links.append(i)
         else:
             continue
+    final_links = take_cap(final_links, cap)
     print(f"\n Final validated urls found: {len(final_links)}")
     print(final_links)
     return final_links
@@ -609,7 +613,7 @@ def phase2_scrape_post(sb, post_url, idx, total):
 
 
 
-def main(profile_url, max_posts=10):
+def main(profile_url, max_posts=10, start_date=None, end_date=None):
     if not profile_url:
         profile_url = input("Enter profile URL: ").strip()
 
@@ -642,6 +646,8 @@ def main(profile_url, max_posts=10):
                     'error':           str(e)
                 })
             time.sleep(3)
+
+    results = filter_dated_items(results, start_date, end_date)
 
     # Save
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:

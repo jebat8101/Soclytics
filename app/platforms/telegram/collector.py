@@ -25,6 +25,8 @@ from datetime import datetime, timezone
 import requests
 
 from core.counts import as_int, parse_compact_int
+from core.date_filters import filter_dated_items
+from core.depth import cap_label, has_room, normalize_cap, take_cap
 from core.urls import extract_telegram_username, normalize_telegram_target
 
 from platforms.telegram.constants import (
@@ -440,7 +442,7 @@ async def _sender_avatar_photos(client, profile_url, counts, entities, budget) -
     """
     photos = []
     for url, hits in counts.most_common():
-        if len(photos) >= budget:
+        if not has_room(len(photos), budget):
             break
         entity = entities.get(url)
         if entity is None:
@@ -598,13 +600,28 @@ async def _collect_user_photos(client, entity, profile_url, username, max_photos
     return photos
 
 
-def _has_room(kind: str, photos: list, reels: list, max_photos: int, max_reels: int) -> bool:
+def _has_room(kind: str, photos: list, reels: list, max_photos, max_reels) -> bool:
     """Only download media the matching bucket can still hold."""
     if kind == "photo":
-        return len(photos) < max_photos
+        return has_room(len(photos), max_photos)
     if kind == "reel":
-        return len(reels) < max_reels
+        return has_room(len(reels), max_reels)
     return False
+
+
+def _scan_window(max_posts, max_photos, max_reels, factor: int) -> int:
+    """Message scan window; unlimited Deep uses the platform max window."""
+    caps = [c for c in (max_posts, max_photos, max_reels) if c is not None]
+    if not caps:
+        return MAX_SCAN_WINDOW
+    return min(max(caps) * factor, MAX_SCAN_WINDOW)
+
+
+def _wanted_total(max_posts, max_photos, max_reels) -> int:
+    caps = (max_posts, max_photos, max_reels)
+    if any(c is None for c in caps):
+        return 10**9
+    return int(max_posts) + int(max_photos) + int(max_reels)
 
 
 def _remember(entities: dict, ident: dict | None, entity) -> None:
@@ -639,7 +656,9 @@ async def _channel_items(client, entity, username, profile_url, messages,
     photos, reels, posts = [], [], []
 
     for msg in messages:
-        if len(photos) >= max_photos and len(reels) >= max_reels and len(posts) >= max_posts:
+        if (not has_room(len(photos), max_photos)
+                and not has_room(len(reels), max_reels)
+                and not has_room(len(posts), max_posts)):
             break
         kind = _media_kind(msg)
         text = (msg.message or "").strip()
@@ -660,13 +679,13 @@ async def _channel_items(client, entity, username, profile_url, messages,
         if _has_room(kind, photos, reels, max_photos, max_reels):
             path = await _download_message_media(client, msg, username)
 
-        if path and kind == "photo" and len(photos) < max_photos:
+        if path and kind == "photo" and has_room(len(photos), max_photos):
             photos.append({"photo_url": post_url, "date": date, "image_src": path,
                            "caption": caption, "comments": comments, **counts})
-        elif path and kind == "reel" and len(reels) < max_reels:
+        elif path and kind == "reel" and has_room(len(reels), max_reels):
             reels.append({"reel_url": post_url, "date": date, "image_src": path,
                           "caption": caption, "comments": comments, **counts})
-        elif len(posts) < max_posts:
+        elif has_room(len(posts), max_posts):
             posts.append({"post_url": post_url, "date": date,
                           "screenshot_path": _write_caption_txt(f"{username}_{msg.id}", caption),
                           "comments": comments, **counts})
@@ -735,10 +754,10 @@ async def _group_items(client, entity, username, profile_url, messages,
                     **counts,
                 }
                 url = f"https://t.me/{username}/{msg.id}"
-                if kind == "photo" and len(photos) < max_photos:
+                if kind == "photo" and has_room(len(photos), max_photos):
                     photos.append({"photo_url": url, **item})
                     continue
-                if kind == "reel" and len(reels) < max_reels:
+                if kind == "reel" and has_room(len(reels), max_reels):
                     reels.append({"reel_url": url, **item})
                     continue
 
@@ -753,7 +772,7 @@ async def _group_items(client, entity, username, profile_url, messages,
             _absorb(bucket["people"], extra, extra["comment_text"], extra["interaction_type"])
 
     posts = []
-    for date in list(by_day)[:max_posts]:
+    for date in take_cap(list(by_day), max_posts):
         bucket = by_day[date]
         lines = list(reversed(bucket["lines"]))[:MAX_DAY_TRANSCRIPT_LINES]
         body = "\n".join(lines)[:MAX_TRANSCRIPT_CHARS]
@@ -808,7 +827,7 @@ async def _telethon_collect(username, profile_url, max_posts, max_photos, max_re
 
         is_group = kind in ("Supergroup", "Group")
         factor = GROUP_SCAN_FACTOR if is_group else CHANNEL_SCAN_FACTOR
-        window = min(max(max_posts, max_photos, max_reels) * factor, MAX_SCAN_WINDOW)
+        window = _scan_window(max_posts, max_photos, max_reels, factor)
         messages = []
         async for msg in client.iter_messages(entity, limit=window):
             messages.append(msg)
@@ -826,8 +845,9 @@ async def _telethon_collect(username, profile_url, max_posts, max_photos, max_re
             _remember(entities, _peer_identity(resolved), resolved)
 
         counts = _tally(photos + reels + posts)
+        avatar_budget = None if max_photos is None else max(3, max_photos // 2)
         photos += await _sender_avatar_photos(
-            client, profile_url, counts, entities, max(3, max_photos // 2)
+            client, profile_url, counts, entities, avatar_budget
         )
 
         admin_fields = await _admin_fields(client, entity)
@@ -1023,7 +1043,7 @@ def _public_collect(username, profile_url, max_posts, max_photos, max_reels):
     about = None
     parsed, seen_ids = [], set()
     before = None
-    wanted = max_posts + max_photos + max_reels
+    wanted = _wanted_total(max_posts, max_photos, max_reels)
 
     for _ in range(MAX_PREVIEW_PAGES):
         url = f"https://t.me/s/{username}"
@@ -1063,7 +1083,7 @@ def _public_collect(username, profile_url, max_posts, max_photos, max_reels):
     parsed.sort(key=lambda x: x["id"], reverse=True)
     photos, reels, posts = [], [], []
     for item in parsed:
-        if item["bucket"] == "photo" and len(photos) < max_photos:
+        if item["bucket"] == "photo" and has_room(len(photos), max_photos):
             dest = os.path.join(MEDIA_DIR, f"telegram_{_safe(username)}_{item['id']}.jpg")
             photos.append({
                 "photo_url": item["url"],
@@ -1075,7 +1095,7 @@ def _public_collect(username, profile_url, max_posts, max_photos, max_reels):
                 "reply_count": item.get("reply_count", 0),
                 "repost_count": item.get("repost_count", 0),
             })
-        elif item["bucket"] == "reel" and len(reels) < max_reels:
+        elif item["bucket"] == "reel" and has_room(len(reels), max_reels):
             dest = os.path.join(MEDIA_DIR, f"telegram_{_safe(username)}_{item['id']}.jpg")
             reels.append({
                 "reel_url": item["url"],
@@ -1087,7 +1107,7 @@ def _public_collect(username, profile_url, max_posts, max_photos, max_reels):
                 "reply_count": item.get("reply_count", 0),
                 "repost_count": item.get("repost_count", 0),
             })
-        elif len(posts) < max_posts and item["caption"]:
+        elif has_room(len(posts), max_posts) and item["caption"]:
             posts.append({
                 "post_url": item["url"],
                 "date": item["date"],
@@ -1105,7 +1125,7 @@ def _public_collect(username, profile_url, max_posts, max_photos, max_reels):
 #  Entry points
 # ─────────────────────────────────────────────────────────────
 
-def collect(profile_url, max_posts=10, max_photos=10, max_reels=10):
+def collect(profile_url, max_posts=10, max_photos=10, max_reels=10, start_date=None, end_date=None):
     username = extract_telegram_username(profile_url)
     if not username:
         raise ValueError(
@@ -1113,9 +1133,16 @@ def collect(profile_url, max_posts=10, max_photos=10, max_reels=10):
             "(private invite links are not supported)"
         )
     profile_url = normalize_telegram_target(profile_url)
+    max_posts = normalize_cap(max_posts)
+    max_photos = normalize_cap(max_photos)
+    max_reels = normalize_cap(max_reels)
 
     print(f"\n{'═'*65}")
     print(f"  TELEGRAM COLLECTOR — @{username}")
+    print(
+        f"  caps posts={cap_label(max_posts)} "
+        f"photos={cap_label(max_photos)} reels={cap_label(max_reels)}"
+    )
     print("═" * 65)
 
     about = photos = reels = posts = None
@@ -1141,7 +1168,11 @@ def collect(profile_url, max_posts=10, max_photos=10, max_reels=10):
             username, profile_url, max_posts, max_photos, max_reels
         )
 
-    if not photos and not reels and not posts:
+    photos = filter_dated_items(photos, start_date, end_date)
+    reels = filter_dated_items(reels, start_date, end_date)
+    posts = filter_dated_items(posts, start_date, end_date)
+
+    if not photos and not reels and not posts and not (start_date or end_date):
         bio = ""
         for field in (about.get("sections") or {}).get("directory_intro", []):
             if field.get("value"):
@@ -1214,12 +1245,19 @@ def check_session_valid():
     return True, f"MTProto session ready ({os.path.basename(cfg['session'])})"
 
 
-def main(profile_url=None, max_posts=10, max_photos=None, max_reels=None):
+def main(profile_url=None, max_posts=10, max_photos=None, max_reels=None, start_date=None, end_date=None):
     if not profile_url:
         profile_url = input("Enter Telegram channel/group URL: ").strip()
     max_photos = max_photos if max_photos is not None else max_posts
     max_reels = max_reels if max_reels is not None else max_posts
-    return collect(profile_url, max_posts=max_posts, max_photos=max_photos, max_reels=max_reels)
+    return collect(
+        profile_url,
+        max_posts=max_posts,
+        max_photos=max_photos,
+        max_reels=max_reels,
+        start_date=start_date,
+        end_date=end_date,
+    )
 
 
 if __name__ == "__main__":

@@ -10,6 +10,8 @@ if os.name != 'nt':
     except FileNotFoundError:
         pass
 
+from core.date_filters import filter_dated_items
+from core.depth import cap_label, has_room, normalize_cap, take_cap
 from platforms.facebook.constants import COOKIE_FILE
 PROFILE_URL  = "REDACTED"
 MAX_PHOTOS   = 12
@@ -99,8 +101,9 @@ return result;
 
 
 def phase1_collect_photos(sb,PROFILE_URL=PROFILE_URL,MAX_PHOTOS=MAX_PHOTOS):
+    cap = normalize_cap(MAX_PHOTOS)
     print("\n" + "═"*65)
-    print("PHASE 1 — Collecting photo URLs")
+    print(f"PHASE 1 — Collecting photo URLs (max={cap_label(cap)})")
     print("═"*65)
 
     photos_url = get_photos_url(PROFILE_URL)
@@ -112,9 +115,9 @@ def phase1_collect_photos(sb,PROFILE_URL=PROFILE_URL,MAX_PHOTOS=MAX_PHOTOS):
     seen        = set()
     scroll_n    = 0
     no_change   = 0
-    MAX_SCROLLS = 60
+    max_scrolls = 2000 if cap is None else 60
 
-    while len(photo_links) < MAX_PHOTOS and scroll_n < MAX_SCROLLS:
+    while has_room(len(photo_links), cap) and scroll_n < max_scrolls:
 
         found = sb.execute_script(
             f"(function(){{ {COLLECT_PHOTO_LINKS_JS_IIFE} }})()"
@@ -128,12 +131,12 @@ def phase1_collect_photos(sb,PROFILE_URL=PROFILE_URL,MAX_PHOTOS=MAX_PHOTOS):
             seen.add(href)
             photo_links.append(item)
             print(f" [{len(photo_links)}] [{ptype}] {href}")
-            if len(photo_links) >= MAX_PHOTOS:
+            if not has_room(len(photo_links), cap):
                 break
 
         print(f"  scroll #{scroll_n}  total: {len(photo_links)}")
 
-        if len(photo_links) >= MAX_PHOTOS:
+        if not has_room(len(photo_links), cap):
             break
 
         prev = len(photo_links)
@@ -159,6 +162,7 @@ def phase1_collect_photos(sb,PROFILE_URL=PROFILE_URL,MAX_PHOTOS=MAX_PHOTOS):
             print("  No new photos for 8 scrolls — stopping")
             break
 
+    photo_links = take_cap(photo_links, cap)
     post    = [p for p in photo_links if p['type'] == 'post_photo']
     profile = [p for p in photo_links if p['type'] == 'profile_picture'] #Later write this link into a file
     cover   = [p for p in photo_links if p['type'] == 'cover_photo']     
@@ -492,7 +496,7 @@ def phase2_scrape_photo(sb, photo_url, idx, total):
 
 #  MAIN
 
-def main(PROFILE_URL=PROFILE_URL,MAX_PHOTOS=MAX_PHOTOS):
+def main(PROFILE_URL=PROFILE_URL, MAX_PHOTOS=MAX_PHOTOS, START_DATE=None, END_DATE=None):
     results = []
 
     with SB(uc=True, headless=False, xvfb=True,
@@ -525,6 +529,8 @@ def main(PROFILE_URL=PROFILE_URL,MAX_PHOTOS=MAX_PHOTOS):
                     'error':     str(e)
                 })
             time.sleep(3)
+
+    results = filter_dated_items(results, START_DATE, END_DATE)
 
     # Save
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:

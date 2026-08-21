@@ -11,7 +11,7 @@ FACE_DIR = os.path.join(BASE_DIR, 'face_data')
 DEPTH_LIMITS = {
     'light':  {'posts': 5,  'reels': 5,  'photos': 5},
     'medium': {'posts': 10, 'reels': 10, 'photos': 10},
-    'deep':   {'posts': 50, 'reels': 50, 'photos': 50},
+    'deep':   {'posts': None, 'reels': None, 'photos': None},  # unlimited
 }
 
 PIPELINE_STEPS = [

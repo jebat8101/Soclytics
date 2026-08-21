@@ -5,6 +5,8 @@ def make_pipeline_state(step_defs):
         'running': False,
         'profile_url': '',
         'depth': '',
+        'start_date': None,
+        'end_date': None,
         'steps': [],
         'error': None,
         'profile_id': None,
@@ -12,11 +14,13 @@ def make_pipeline_state(step_defs):
         'finished_at': None,
     }
 
-def reset_pipeline(state, step_defs, profile_url='', depth=''):
+def reset_pipeline(state, step_defs, profile_url='', depth='', start_date=None, end_date=None):
     state.update({
         'running': False,
         'profile_url': profile_url,
         'depth': depth,
+        'start_date': start_date,
+        'end_date': end_date,
         'error': None,
         'profile_id': None,
         'started_at': None,

@@ -9,6 +9,7 @@ from flask import (
     send_file, Response,
 )
 
+from core.date_filters import normalize_date_range
 from core.paths import safe_under
 from core.urls import normalize_telegram_target, extract_telegram_username
 from platforms.telegram.constants import (
@@ -283,11 +284,17 @@ def start_pipeline():
     data = request.get_json(silent=True) or {}
     profile_url = (data.get('profile_url') or '').strip()
     depth = (data.get('depth') or 'light').strip().lower()
+    start_date = (data.get('start_date') or '').strip() or None
+    end_date = (data.get('end_date') or '').strip() or None
 
     if not profile_url:
         return jsonify({'ok': False, 'error': 'profile_url required'}), 400
     if depth not in DEPTH_LIMITS:
         depth = 'light'
+    try:
+        start_date, end_date = normalize_date_range(start_date, end_date)
+    except ValueError as e:
+        return jsonify({'ok': False, 'error': str(e)}), 400
 
     try:
         profile_url = normalize_telegram_target(profile_url)
@@ -300,11 +307,22 @@ def start_pipeline():
             'error': 'Telegram invite links have no public username — use t.me/<channel>',
         }), 400
 
-    reset_pipeline(pipeline_state, PIPELINE_STEPS, profile_url=profile_url, depth=depth)
+    reset_pipeline(
+        pipeline_state,
+        PIPELINE_STEPS,
+        profile_url=profile_url,
+        depth=depth,
+        start_date=start_date,
+        end_date=end_date,
+    )
     pipeline_state['running'] = True
     pipeline_state['started_at'] = datetime.now().isoformat()
 
-    threading.Thread(target=_run_pipeline, args=(profile_url, depth), daemon=True).start()
+    threading.Thread(
+        target=_run_pipeline,
+        args=(profile_url, depth, start_date, end_date),
+        daemon=True,
+    ).start()
     return jsonify({'ok': True, 'message': 'Telegram pipeline started'})
 
 
@@ -315,6 +333,8 @@ def pipeline_status():
         'running': pipeline_state['running'],
         'profile_url': pipeline_state['profile_url'],
         'depth': pipeline_state['depth'],
+        'start_date': pipeline_state['start_date'],
+        'end_date': pipeline_state['end_date'],
         'steps': pipeline_state['steps'],
         'error': pipeline_state['error'],
         'profile_id': pipeline_state['profile_id'],
@@ -323,7 +343,7 @@ def pipeline_status():
     })
 
 
-def _run_pipeline(profile_url, depth):
+def _run_pipeline(profile_url, depth, start_date=None, end_date=None):
     limits = DEPTH_LIMITS[depth]
     posts_limit = limits['posts']
     reels_limit = limits['reels']
@@ -339,6 +359,8 @@ def _run_pipeline(profile_url, depth):
                 max_posts=posts_limit,
                 max_photos=photos_limit,
                 max_reels=reels_limit,
+                start_date=start_date,
+                end_date=end_date,
             )
             for step_id in ('about', 'photos', 'reels', 'posts'):
                 set_step(pipeline_state, step_id, 'done')

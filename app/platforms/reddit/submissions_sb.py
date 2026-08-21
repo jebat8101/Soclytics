@@ -26,6 +26,8 @@ if os.name != 'nt':
     except FileNotFoundError:
         pass
 
+from core.date_filters import filter_dated_items
+from core.depth import cap_label, has_room, normalize_cap, take_cap
 from platforms.reddit.about_sb import (
     login,
     _require_cookies,
@@ -102,6 +104,7 @@ def parse_submissions_list_from_html(html: str, max_posts: int = 10) -> list:
             "Reddit login page detected — cookies missing or session expired."
         )
 
+    cap = normalize_cap(max_posts)
     items = []
     for m in re.finditer(
         r'<div([^>]*\bthing\b[^>]*\blink\b[^>]*)>(.*?)(?=<div[^>]*\bthing\b|\Z)',
@@ -182,10 +185,10 @@ def parse_submissions_list_from_html(html: str, max_posts: int = 10) -> list:
             'reply_count': len(comments),
             'repost_count': 0,
         })
-        if len(items) >= max_posts:
+        if not has_room(len(items), cap):
             break
 
-    return items[:max_posts]
+    return take_cap(items, cap)
 
 
 def parse_comments_from_html(html: str) -> list:
@@ -297,7 +300,8 @@ def _submitted_url(profile_url: str) -> str:
 
 
 def phase1_collect_submissions(sb, profile_url: str, max_posts: int) -> list:
-    print(f"\nPHASE 1 — Collecting up to {max_posts} submissions")
+    cap = normalize_cap(max_posts)
+    print(f"\nPHASE 1 — Collecting up to {cap_label(cap)} submissions")
     url = _submitted_url(profile_url)
     sb.open(url)
     time.sleep(4)
@@ -308,15 +312,26 @@ def phase1_collect_submissions(sb, profile_url: str, max_posts: int) -> list:
             "session expired or cookies invalid."
         )
 
-    items = parse_submissions_list_from_html(html, max_posts=max_posts)
-    for _ in range(3):
-        if len(items) >= max_posts:
+    items = parse_submissions_list_from_html(html, max_posts=cap)
+    last_len = -1
+    stagnant = 0
+    max_rounds = 2000 if cap is None else 3
+    for _ in range(max_rounds):
+        if not has_room(len(items), cap):
             break
+        if len(items) == last_len:
+            stagnant += 1
+            if stagnant >= 3:
+                break
+        else:
+            stagnant = 0
+        last_len = len(items)
         sb.execute_script("(function(){ window.scrollBy(0, 1200); })()")
         time.sleep(2)
         html = sb.get_page_source()
-        items = parse_submissions_list_from_html(html, max_posts=max_posts)
+        items = parse_submissions_list_from_html(html, max_posts=cap)
 
+    items = take_cap(items, cap)
     print(f"   Found {len(items)} submissions")
     return items
 
@@ -359,15 +374,16 @@ def phase2_scrape_comments(sb, item: dict, idx: int, total: int) -> dict:
     return out
 
 
-def main(PROFILE_URL: str, MAX_POSTS: int = 10):
+def main(PROFILE_URL: str, MAX_POSTS: int = 10, START_DATE=None, END_DATE=None):
     """
     Live scrape Reddit submissions + comments → ``reddit_submissions.json``.
 
     Prefer old.reddit.com. NOTE: selectors may need live tuning.
     """
+    cap = normalize_cap(MAX_POSTS)
     print("\n" + "═" * 65)
     print("Reddit Submissions Scraper")
-    print(f"Profile: {PROFILE_URL}  max={MAX_POSTS}")
+    print(f"Profile: {PROFILE_URL}  max={cap_label(cap)}")
     print("═" * 65)
 
     _require_cookies()
@@ -375,7 +391,7 @@ def main(PROFILE_URL: str, MAX_POSTS: int = 10):
 
     with SB(uc=True, headless=False, xvfb=True, window_size="1280,900") as sb:
         login(sb)
-        items = phase1_collect_submissions(sb, PROFILE_URL, MAX_POSTS)
+        items = phase1_collect_submissions(sb, PROFILE_URL, cap)
 
         print(f"\n{'═'*65}")
         print(f"PHASE 2 — Scraping comments for {len(items)} posts")
@@ -394,6 +410,8 @@ def main(PROFILE_URL: str, MAX_POSTS: int = 10):
                 err['repost_count'] = 0
                 results.append(err)
             time.sleep(2)
+
+    results = filter_dated_items(results, START_DATE, END_DATE)
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)

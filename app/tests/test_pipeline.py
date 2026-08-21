@@ -7,9 +7,18 @@ STEPS = [
 
 def test_reset_sets_pending_steps():
     state = make_pipeline_state(STEPS)
-    reset_pipeline(state, STEPS, profile_url='https://x', depth='light')
+    reset_pipeline(
+        state,
+        STEPS,
+        profile_url='https://x',
+        depth='light',
+        start_date='2026-08-01',
+        end_date='2026-08-31',
+    )
     assert state['profile_url'] == 'https://x'
     assert state['depth'] == 'light'
+    assert state['start_date'] == '2026-08-01'
+    assert state['end_date'] == '2026-08-31'
     assert state['running'] is False
     assert [s['status'] for s in state['steps']] == ['pending', 'pending']
 
